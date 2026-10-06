@@ -1,0 +1,18 @@
+{# ============================================================
+   BARRE DE BASCULE GOOD ENGINEERS — à coller avant </body>
+   dans templates/base.html de GEMINING-1.
+
+   Les valeurs viennent de la session (posée par /sso/). Si
+   l'utilisateur s'est connecté par l'ancienne page /login/ sans
+   passer par le portail, ge_switchbar est absent et la barre ne
+   s'affiche pas : la Mine reste utilisable seule.
+   ============================================================ #}
+{% if request.session.ge_switchbar %}
+  {{ request.session.ge_switchbar|json_script:"ge-switchbar-data" }}
+  <script>
+    try {
+      window.GE_SWITCHBAR = JSON.parse(document.getElementById('ge-switchbar-data').textContent);
+    } catch (e) {}
+  </script>
+  <script src="https://geportail.duckdns.org/static/portal/switchbar.js"></script>
+{% endif %}

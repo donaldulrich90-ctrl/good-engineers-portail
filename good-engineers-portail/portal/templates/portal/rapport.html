@@ -1,0 +1,62 @@
+{% extends "portal/base.html" %}
+{% block titre %}Rapport consolidé — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<div class="card">
+  <h2 style="margin-top:0">Rapport consolidé — {{ entreprise.nom }}</h2>
+  <form method="get" action="{% url 'rapport' %}"
+        style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <div style="flex:1;min-width:140px"><label for="start">Du</label>
+      <input id="start" type="date" name="start" value="{{ start }}"></div>
+    <div style="flex:1;min-width:140px"><label for="end">Au</label>
+      <input id="end" type="date" name="end" value="{{ end }}"></div>
+    <button class="btn primaire" type="submit">Actualiser</button>
+    <a class="btn" href="{% url 'rapport_export_xlsx' %}?start={{ start }}&end={{ end }}">Export Excel</a>
+    <button class="btn" type="button" onclick="window.print()">Imprimer / PDF</button>
+  </form>
+  <p class="mut" style="font-size:13px;margin:10px 0 0">Période : {{ start_fr }} au {{ end_fr }}</p>
+  {% for e in data.erreurs %}<p class="err" style="font-size:13px;margin:4px 0 0">⚠ {{ e }}</p>{% endfor %}
+</div>
+
+{% if data.croise %}
+<div class="card">
+  <strong>Vue croisée</strong>
+  <table style="margin-top:8px">
+    <tr><th>Coût total d'exploitation</th><td>{{ data.croise.cout_total }}</td></tr>
+    <tr><th>Carburant total (foreuses + engins)</th><td>{{ data.croise.carburant_litres }} L</td></tr>
+    <tr><th>Effectif total sur site</th><td>{{ data.croise.effectif }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+{% if data.forage %}
+<div class="card">
+  <strong>Forage</strong>
+  <table style="margin-top:8px">
+    <thead><tr><th>Foreuse</th><th>Mètres forés</th><th>ROP moy.</th><th>Arrêts</th><th>Coût consommables</th></tr></thead>
+    <tbody>
+      {% for r in data.forage.par_engin %}
+      <tr><td>{{ r.engin }}</td><td>{{ r.metres }}</td><td>{{ r.rop }}</td><td>{{ r.arrets }}</td><td>{{ r.consommables_cout }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="mut">Aucune donnée sur la période.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if data.mine %}
+<div class="card">
+  <strong>Mine</strong>
+  <table style="margin-top:8px">
+    <thead><tr><th>Engin</th><th>Production (t)</th><th>Heures</th><th>Carburant (L)</th><th>t/h</th><th>L/t</th></tr></thead>
+    <tbody>
+      {% for r in data.mine.par_engin %}
+      <tr><td>{{ r.engin }}</td><td>{{ r.production }}</td><td>{{ r.heures }}</td><td>{{ r.carburant }}</td><td>{{ r.tph }}</td><td>{{ r.lpt }}</td></tr>
+      {% empty %}<tr><td colspan="6" class="mut">Aucune donnée sur la période.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not data.forage and not data.mine %}
+<div class="card"><p class="mut">Aucun module actif à rapporter pour cette entreprise.</p></div>
+{% endif %}
+{% endblock %}

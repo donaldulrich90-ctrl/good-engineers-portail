@@ -1,0 +1,35 @@
+{% extends "portal/base.html" %}
+{% block titre %}Gestion des clients{% endblock %}
+{% block contenu %}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <h2 style="margin:0">Clients</h2>
+  <a class="btn primaire" href="{% url 'gestion_client_nouveau' %}">+ Nouveau client</a>
+</div>
+
+<div class="card" style="margin-top:16px;padding:0">
+  <table>
+    <thead><tr><th>Client</th><th>Offre</th><th>Modules</th><th>État</th><th>Comptes</th><th></th></tr></thead>
+    <tbody>
+      {% for c in clients %}
+      <tr>
+        <td><strong>{{ c.obj.nom }}</strong><br><span class="mut" style="font-size:12px">{{ c.obj.slug }}</span></td>
+        <td>{{ c.offre }}</td>
+        <td>
+          {% if c.obj.module_forage %}<span class="pill ok">Forage</span> {% endif %}
+          {% if c.obj.module_mine %}<span class="pill ok">Mine</span>{% endif %}
+          {% if not c.obj.module_forage and not c.obj.module_mine %}<span class="mut">—</span>{% endif %}
+        </td>
+        <td>{% if c.obj.active %}<span class="pill ok">actif</span>{% else %}<span class="pill off">suspendu</span>{% endif %}</td>
+        <td>{{ c.nb_comptes }}</td>
+        <td style="text-align:right">
+          <a class="btn" href="{% url 'gestion_client_edit' c.obj.pk %}">Modifier</a>
+          <a class="btn" href="{% url 'gestion_comptes' c.obj.pk %}">Accès</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="mut" style="padding:18px">Aucun client pour l'instant. Crée le premier avec « Nouveau client ».</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

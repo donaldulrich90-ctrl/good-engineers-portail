@@ -1,0 +1,10 @@
+{% extends "portal/base.html" %}
+{% block titre %}Accès refusé{% endblock %}
+{% block contenu %}
+<div class="card">
+  <h2 style="margin-top:0">Module {{ module }} indisponible</h2>
+  <p class="mut">Ce module n'est pas souscrit par votre entreprise, ou votre
+  compte n'y est pas rattaché.</p>
+  <a class="btn" href="{% url 'dashboard' %}">Retour à l'accueil</a>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "portal/base.html" %}
+{% block titre %}Connexion — Portail GOOD ENGINEERS{% endblock %}
+{% block contenu %}
+<div class="card" style="max-width:380px;margin:40px auto">
+  <h2 style="margin-top:0">Connexion</h2>
+  <p class="mut" style="font-size:14px">Un seul compte pour tous vos modules.</p>
+  {% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
+  <form method="post" action="{% url 'login' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
+    {% csrf_token %}
+    <label for="username">Identifiant</label>
+    <input id="username" name="username" autocomplete="username" autofocus required>
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn primaire" type="submit" style="margin-top:16px;width:100%">Se connecter</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+# PORTAIL GOOD ENGINEERS — troisième service, à côté de gedrilling et gemining.
+# Manuel : docker compose up -d --build
+# Accès : http://localhost:8000
+services:
+  portail:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - portail-data:/app/data
+    environment:
+      - PORTAIL_SECRET_KEY=${PORTAIL_SECRET_KEY:?PORTAIL_SECRET_KEY obligatoire}
+      - PORTAIL_DEBUG=${PORTAIL_DEBUG:-0}
+      - PORTAIL_ALLOWED_HOSTS=${PORTAIL_ALLOWED_HOSTS:-*}
+      - PORTAIL_CSRF_TRUSTED_ORIGINS=${PORTAIL_CSRF_TRUSTED_ORIGINS:-}
+      - PORTAIL_BASE_URL=${PORTAIL_BASE_URL:-https://geportail.duckdns.org}
+      # Secret PARTAGÉ avec les deux applications (bascule SSO).
+      - SSO_SHARED_SECRET=${SSO_SHARED_SECRET:?SSO_SHARED_SECRET obligatoire}
+      # Clé de service pour les API métriques (rapport consolidé).
+      - SERVICE_API_KEY=${SERVICE_API_KEY:?SERVICE_API_KEY obligatoire}
+      - FORAGE_BASE_URL=${FORAGE_BASE_URL:-https://gedrilling.duckdns.org}
+      - MINE_BASE_URL=${MINE_BASE_URL:-https://gemining.duckdns.org}
+    restart: unless-stopped
+
+volumes:
+  portail-data:

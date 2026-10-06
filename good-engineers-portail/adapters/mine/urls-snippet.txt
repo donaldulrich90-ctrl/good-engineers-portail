@@ -1,0 +1,43 @@
+ADAPTATEUR MINE — ce qu'il faut ajouter dans GEMINING-1
+========================================================
+
+1) Copier ces deux fichiers dans le dossier webcore/ du dépôt GEMINING-1 :
+     ge_sso_views.py      -> webcore/ge_sso_views.py
+     ge_service_views.py  -> webcore/ge_service_views.py
+
+2) Dans good_engineers_os/urls.py, ajouter les imports et les routes.
+   IMPORTANT : placer /sso/ AVANT la route attrape-tout "app/<slug:slug>/".
+
+   En haut :
+     from webcore import ge_sso_views, ge_service_views
+
+   Dans urlpatterns, ajouter (de préférence juste après path("login/", ...)) :
+
+     path("sso/", ge_sso_views.sso_login, name="sso"),
+     path("api/service/metrics/", ge_service_views.metrics, name="svc_metrics"),
+     path("api/service/module-state/", ge_service_views.module_state, name="svc_module_state"),
+     path("api/service/user/", ge_service_views.create_user, name="svc_create_user"),
+
+3) Rendre /sso/ et /api/service/ accessibles SANS session.
+   Dans webcore/middleware.py, la ligne des préfixes publics :
+
+     _PUBLIC_PREFIXES = ("/login", "/static", "/favicon.ico")
+
+   devient :
+
+     _PUBLIC_PREFIXES = ("/login", "/sso", "/api/service", "/static", "/favicon.ico")
+
+   (/sso ouvre lui-même la session ; /api/service est protégé par la clé de service.)
+
+4) Barre de bascule : dans templates/base.html, juste avant </body>,
+   coller le bloc du fichier switchbar-snippet.html (voir ce dossier).
+
+5) Variables d'environnement à ajouter au service Mine (Coolify) :
+
+     SSO_SHARED_SECRET=<le même secret que le portail>
+     SERVICE_API_KEY=<la même clé de service que le portail>
+
+   (PyJWT est déjà requis par l'adaptateur : ajoute "PyJWT>=2.8" à
+    requirements.txt de la Mine s'il n'y est pas déjà.)
+
+Aucune vue métier existante n'est modifiée.

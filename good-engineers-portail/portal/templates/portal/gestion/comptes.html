@@ -1,0 +1,94 @@
+{% extends "portal/base.html" %}
+{% block titre %}Accès — {{ ent.nom }}{% endblock %}
+{% block contenu %}
+<p style="margin:0 0 10px"><a href="{% url 'gestion_clients' %}">← Clients</a></p>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0">Accès — {{ ent.nom }}</h2>
+    <span class="pill ok">{{ offre }}</span>
+  </div>
+  <p class="mut" style="font-size:13px;margin:8px 0 0">
+    Modules :
+    {% if ent.module_forage %}Forage (id {{ ent.forage_enterprise_id }}){% endif %}
+    {% if ent.module_forage and ent.module_mine %} · {% endif %}
+    {% if ent.module_mine %}Mine (tenant {{ ent.mine_tenant_id }}){% endif %}
+    · <a href="{% url 'gestion_client_edit' ent.pk %}">modifier</a>
+  </p>
+  {% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
+  {% if ok %}<p style="color:var(--ok)">{{ ok }}</p>{% endif %}
+</div>
+
+<div class="card" style="padding:0">
+  <table>
+    <thead><tr><th>Compte portail</th><th>Rôle</th><th>Identité Forage</th><th>Identité Mine</th><th></th></tr></thead>
+    <tbody>
+      {% for p in comptes %}
+      <tr>
+        <td><strong>{{ p.user.username }}</strong></td>
+        <td>{{ p.get_role_portail_display }}</td>
+        <td>{% if p.forage_username %}{{ p.forage_username }} <span class="mut">({{ p.forage_role }})</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+        <td>{% if p.mine_username %}{{ p.mine_username }} <span class="mut">({{ p.mine_role }})</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+        <td style="text-align:right">
+          {% if not p.user.is_superuser %}
+          <form method="post" style="display:inline" onsubmit="return confirm('Supprimer ce compte ?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="supprimer">
+            <input type="hidden" name="user_id" value="{{ p.user.id }}">
+            <button class="btn" type="submit">Supprimer</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="mut" style="padding:18px">Aucun compte. Ajoute le premier ci-dessous.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <strong>Ajouter un compte</strong>
+  <p class="mut" style="font-size:13px;margin:4px 0 10px">
+    Un seul identifiant et un seul mot de passe. Le compte est créé d'un geste
+    dans le portail{% if ent.module_forage %} et dans Forage{% endif %}{% if ent.module_mine %} et dans la Mine{% endif %}.
+  </p>
+  <form method="post" style="margin-top:8px">
+    {% csrf_token %}
+    <div class="grid">
+      <div>
+        <label for="username">Identifiant</label>
+        <input id="username" name="username" required>
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="text" required>
+        <label for="role_portail">Rôle sur le portail</label>
+        <select id="role_portail" name="role_portail">
+          <option value="membre">Membre</option>
+          <option value="admin">Administrateur du compte client</option>
+        </select>
+      </div>
+      <div>
+        {% if ent.module_forage %}
+        <label for="forage_role">Rôle dans Forage</label>
+        <select id="forage_role" name="forage_role">
+          <option value="foreur">Foreur</option>
+          <option value="aideforeur">Aide-foreur</option>
+          <option value="superviseur">Superviseur</option>
+          <option value="ingenieur">Ingénieur</option>
+          <option value="gestionnaire">Gestionnaire</option>
+          <option value="admin">Admin</option>
+        </select>
+        {% endif %}
+        {% if ent.module_mine %}
+        <label for="mine_role">Rôle dans la Mine</label>
+        <select id="mine_role" name="mine_role">
+          <option value="Invite">Invité</option>
+          <option value="Operateur">Opérateur</option>
+          <option value="Administrateur">Administrateur</option>
+        </select>
+        {% endif %}
+      </div>
+    </div>
+    <button class="btn primaire" type="submit" style="margin-top:14px">Créer le compte</button>
+  </form>
+</div>
+{% endblock %}

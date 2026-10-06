@@ -1,0 +1,40 @@
+{% extends "portal/base.html" %}
+{% block titre %}{% if ent %}Modifier {{ ent.nom }}{% else %}Nouveau client{% endif %}{% endblock %}
+{% block contenu %}
+<p style="margin:0 0 10px"><a href="{% url 'gestion_clients' %}">← Clients</a></p>
+<div class="card">
+  <h2 style="margin-top:0">{% if ent %}Modifier le client{% else %}Nouveau client{% endif %}</h2>
+  {% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <label for="nom">Nom du client</label>
+    <input id="nom" name="nom" value="{{ ent.nom|default:'' }}" required>
+
+    <label for="slug">Slug (laisser vide = généré du nom)</label>
+    <input id="slug" name="slug" value="{{ ent.slug|default:'' }}">
+
+    <div style="display:flex;gap:18px;margin:14px 0 4px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;margin:0">
+        <input type="checkbox" name="module_forage" style="width:auto" {% if ent.module_forage %}checked{% endif %}> Module Forage
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0">
+        <input type="checkbox" name="module_mine" style="width:auto" {% if ent.module_mine %}checked{% endif %}> Module Mine
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0">
+        <input type="checkbox" name="active" style="width:auto" {% if ent.active or not ent %}checked{% endif %}> Entreprise active
+      </label>
+    </div>
+
+    <label for="forage_enterprise_id">enterpriseId côté Forage (si module Forage)</label>
+    <input id="forage_enterprise_id" name="forage_enterprise_id" value="{{ ent.forage_enterprise_id|default:'' }}" placeholder="ex: 2">
+
+    <label for="mine_tenant_id">tenant côté Mine (si module Mine)</label>
+    <input id="mine_tenant_id" name="mine_tenant_id" value="{{ ent.mine_tenant_id|default:'' }}" placeholder="ex: default ou un slug">
+
+    <button class="btn primaire" type="submit" style="margin-top:16px">Enregistrer et gérer les accès →</button>
+  </form>
+  <p class="mut" style="font-size:13px;margin:12px 0 0">
+    Décocher un module le détache : il disparaît côté client et le portail demande à l'application de désactiver l'entreprise. Les données restent en base.
+  </p>
+</div>
+{% endblock %}

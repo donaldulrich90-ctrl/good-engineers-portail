@@ -1,0 +1,20 @@
+<!-- ============================================================
+     BARRE DE BASCULE GOOD ENGINEERS — à coller avant </body>
+     dans plateforme-forage.html (et dans dist/index.html si tu
+     veux la barre aussi sur le tableau de bord React /monitor).
+
+     Le cookie ge_switchbar est posé par /sso (voir ge-sso.js).
+     Si l'utilisateur est arrivé par l'ancienne page de connexion
+     (sans passer par le portail), le cookie est absent et la barre
+     ne s'affiche pas : l'app reste utilisable seule.
+     ============================================================ -->
+<script>
+(function () {
+  try {
+    var m = document.cookie.match(/(?:^|;\s*)ge_switchbar=([^;]+)/);
+    if (!m) return;
+    window.GE_SWITCHBAR = JSON.parse(decodeURIComponent(m[1]));
+  } catch (e) { return; }
+})();
+</script>
+<script src="https://geportail.duckdns.org/static/portal/switchbar.js"></script>

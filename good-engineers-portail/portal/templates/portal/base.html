@@ -1,0 +1,54 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titre %}Portail GOOD ENGINEERS{% endblock %}</title>
+  <style>
+    :root{--bg:#0f1115;--card:#171a21;--line:#262b36;--txt:#e7e9ee;--mut:#9aa3b2;
+          --acc:#d8812f;--ok:#2e9e6b;--off:#5a6273}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--txt);
+         font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5}
+    a{color:var(--acc);text-decoration:none}
+    header{display:flex;align-items:center;justify-content:space-between;
+           padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+    .brand{font-weight:600;letter-spacing:.3px}
+    .brand small{color:var(--mut);font-weight:400}
+    main{max-width:960px;margin:0 auto;padding:24px 20px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+          padding:18px 20px;margin-bottom:18px}
+    .btn{display:inline-block;padding:9px 16px;border-radius:8px;border:1px solid var(--line);
+         background:transparent;color:var(--txt);cursor:pointer;font-size:14px}
+    .btn.primaire{background:var(--acc);border-color:var(--acc);color:#1a1205;font-weight:600}
+    .btn[disabled]{opacity:.45;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .pill{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line)}
+    .pill.ok{color:var(--ok);border-color:var(--ok)}
+    .pill.off{color:var(--off);border-color:var(--off)}
+    label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+    input,select{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);
+                 background:#0c0e13;color:var(--txt);font-size:14px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+    th{color:var(--mut);font-weight:500}
+    .mut{color:var(--mut)}
+    .err{color:#e0794a}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">GOOD ENGINEERS <small>· portail</small></div>
+    <nav>
+      {% if user.is_authenticated %}
+        <a href="{% url 'dashboard' %}">Accueil</a> ·
+        <a href="{% url 'rapport' %}">Rapport</a> ·
+        {% if user.is_superuser %}<a href="{% url 'gestion_clients' %}">Gestion</a> · {% endif %}
+        <a href="{% url 'logout' %}">Déconnexion</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block contenu %}{% endblock %}</main>
+</body>
+</html>

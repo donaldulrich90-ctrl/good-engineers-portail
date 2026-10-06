@@ -1,0 +1,7 @@
+Django>=5.0,<6.0
+gunicorn>=22.0
+whitenoise>=6.6
+requests>=2.31
+PyJWT>=2.8
+bcrypt>=4.1
+openpyxl>=3.1

@@ -1,0 +1,36 @@
+ADAPTATEUR FORAGE — ce qu'il faut ajouter dans DRILLING-GE
+===========================================================
+
+1) Copier ces deux fichiers à la racine du dépôt DRILLING-GE :
+     ge-sso.js
+     ge-metrics.js
+
+2) Dans server.js, AJOUTER les deux require en haut (avec les autres require) :
+
+     const { registerSso } = require('./ge-sso');
+     const { registerMetrics } = require('./ge-metrics');
+
+3) Dans server.js, monter les routes JUSTE APRÈS le body-parser
+   (les lignes app.use(bodyParser.json(...)) / urlencoded, vers la ligne 70)
+   et AVANT le gardien d'authentification « JWT requis pour toutes les routes
+   /api » (le app.use((req,res,next)=>{ ... }) vers la ligne 483).
+
+   Coller ces deux lignes à cet endroit :
+
+     registerSso(app);        // route publique GET /sso
+     registerMetrics(app);    // routes /api/service/* protégées par X-Service-Key
+
+   Important : les placer AVANT ce gardien, sinon /api/service/* sera bloqué
+   par la demande de JWT. Elles ont leur propre vérification (clé de service).
+
+4) Variables d'environnement à ajouter au service Forage (Coolify) :
+
+     SSO_SHARED_SECRET=<le même secret que le portail>
+     SERVICE_API_KEY=<la même clé de service que le portail>
+     PORTAIL_BASE_URL=https://geportail.duckdns.org
+
+5) Barre de bascule : dans plateforme-forage.html, juste avant </body>,
+   coller le bloc du fichier switchbar-snippet.html (voir ce dossier).
+
+Aucune autre ligne de l'application n'est modifiée. L'ancienne page de
+connexion /plateforme-forage.html continue de fonctionner comme secours.

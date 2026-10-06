@@ -1,0 +1,57 @@
+{% extends "portal/base.html" %}
+{% block titre %}Accueil — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<div class="card" style="border-color:var(--acc)">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="margin:0">{{ entreprise.nom }}</h2>
+      <p class="mut" style="font-size:14px;margin:4px 0 0">
+        {% if est_suite %}Votre espace intégré — Forage + Mine
+        {% else %}Votre espace {{ offre_label }}{% endif %}
+      </p>
+    </div>
+    <span class="pill ok">{{ offre_label }}</span>
+  </div>
+  <p class="mut" style="font-size:13px;margin:10px 0 0">
+    Connecté en tant que {{ profil.user.username }}{% if profil.role_portail == 'admin' %} · administrateur du compte{% endif %}
+  </p>
+</div>
+
+<h3>{% if est_suite %}Vos deux modules{% else %}Votre module{% endif %}</h3>
+<div class="grid">
+  {% for m in modules %}{% if m.actif %}
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:16px">{{ m.label }}</strong>
+      <span class="pill ok">actif</span>
+    </div>
+    <p style="margin:14px 0 0">
+      {% if m.accessible %}
+        <a class="btn primaire" href="{% url 'go_module' m.cle %}">Ouvrir {{ m.label }}</a>
+      {% else %}
+        <button class="btn" disabled title="Votre compte n'est pas rattaché à ce module">Accès non attribué</button>
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}{% endfor %}
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <strong>Rapport consolidé</strong>
+      <p class="mut" style="font-size:14px;margin:6px 0 0">
+        {% if est_suite %}Forage et Mine réunis dans un seul rapport, sur la période de votre choix.
+        {% else %}Votre rapport {{ offre_label }}, sur la période de votre choix.{% endif %}
+      </p>
+    </div>
+    <a class="btn" href="{% url 'rapport' %}">Ouvrir le rapport</a>
+  </div>
+</div>
+
+{% if est_suite %}
+<p class="mut" style="font-size:13px;margin-top:14px">
+  Astuce : une fois dans un module, la barre en haut vous fait passer de Forage à Mine sans vous reconnecter.
+</p>
+{% endif %}
+{% endblock %}
