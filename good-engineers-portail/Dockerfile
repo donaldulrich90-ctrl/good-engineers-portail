@@ -7,10 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# bcrypt a besoin d'outils de build sur slim.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
+# Pas d'outils de build nécessaires : bcrypt et toutes les dépendances
+# s'installent depuis des wheels (pip). Build plus léger et plus fiable.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
