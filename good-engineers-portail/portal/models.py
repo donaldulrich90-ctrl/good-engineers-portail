@@ -124,3 +124,73 @@ class JetonConsomme(models.Model):
 
     def __str__(self):
         return f"{self.jti[:8]}… → {self.module}"
+
+
+# ==========================================================================
+# PERSONNEL + POINTAGE — partagés au niveau de l'entreprise (saisis une
+# seule fois, quel que soit le pack souscrit : Forage, Mine ou Suite).
+# ==========================================================================
+class Employe(models.Model):
+    """Membre du personnel d'une entreprise (pas forcément un compte de connexion)."""
+
+    # Intitulés de poste suggérés (liste modifiable : le champ reste libre).
+    POSTES_SUGGERES = [
+        "Administrateur",
+        "Surintendant de production",
+        "Superviseur de production",
+        "Mécanicien chef d'équipe",
+        "Mécanicien électricité",
+        "Opérateur de foreuse",
+        "Opérateur de dumper",
+        "Comptable",
+        "Magasinier",
+        "Stagiaire",
+    ]
+
+    entreprise = models.ForeignKey(Entreprise, on_delete=models.CASCADE, related_name="employes")
+    nom = models.CharField("nom complet", max_length=160)
+    matricule = models.CharField(max_length=40, blank=True, default="")
+    poste = models.CharField("intitulé de poste", max_length=120, blank=True, default="")
+    sous_traitant = models.BooleanField("sous-traitant", default=False)
+    actif = models.BooleanField(default=True)
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "employé"
+        verbose_name_plural = "employés"
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+
+class Pointage(models.Model):
+    """Pointage quotidien d'un employé."""
+
+    STATUTS = [
+        ("present", "Présent"),
+        ("absent", "Absent"),
+        ("conge", "Congé"),
+        ("repos", "Repos"),
+        ("maladie", "Maladie"),
+    ]
+    POSTES = [("", "—"), ("jour", "Jour"), ("nuit", "Nuit")]
+
+    entreprise = models.ForeignKey(Entreprise, on_delete=models.CASCADE, related_name="pointages")
+    employe = models.ForeignKey(Employe, on_delete=models.CASCADE, related_name="pointages")
+    date = models.DateField()
+    statut = models.CharField(max_length=10, choices=STATUTS, default="present")
+    poste = models.CharField(max_length=5, choices=POSTES, blank=True, default="")
+    heures = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    note = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        verbose_name = "pointage"
+        verbose_name_plural = "pointages"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(fields=["employe", "date"], name="pointage_unique_employe_date"),
+        ]
+
+    def __str__(self):
+        return f"{self.employe} — {self.date} ({self.statut})"

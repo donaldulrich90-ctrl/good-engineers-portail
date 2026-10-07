@@ -1,0 +1,36 @@
+{% extends "portal/base.html" %}
+{% block titre %}Récap pointage — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <h2 style="margin:0">Récap mensuel — {{ entreprise.nom }}</h2>
+  <a class="btn" href="{% url 'pointage' %}">← Pointage du jour</a>
+</div>
+
+<form method="get" action="{% url 'pointage_recap' %}" style="display:flex;gap:10px;align-items:end;margin:12px 0">
+  <div><label for="mois">Mois</label><input id="mois" type="month" name="mois" value="{{ mois }}"></div>
+  <button class="btn" type="submit">Afficher</button>
+</form>
+<p class="mut" style="font-size:13px">Mois : {{ mois_fr }}</p>
+
+<div class="card" style="padding:0">
+  <table>
+    <thead><tr><th>Employé</th><th>Présents</th><th>Absents</th><th>Congé</th><th>Repos</th><th>Maladie</th><th>Total heures</th></tr></thead>
+    <tbody>
+      {% for r in lignes %}
+      <tr>
+        <td><strong>{{ r.employe.nom }}</strong>{% if r.employe.sous_traitant %} <span class="pill ok" style="font-size:11px">ST</span>{% endif %}</td>
+        <td>{{ r.present }}</td>
+        <td>{{ r.absent }}</td>
+        <td>{{ r.conge }}</td>
+        <td>{{ r.repos }}</td>
+        <td>{{ r.maladie }}</td>
+        <td><strong>{{ r.heures }}</strong></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="mut" style="padding:18px">Aucun pointage sur ce mois.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mut" style="font-size:12px;margin-top:8px">« ST » = sous-traitant.</p>
+{% endblock %}

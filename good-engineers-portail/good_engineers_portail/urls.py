@@ -17,6 +17,11 @@ urlpatterns = [
     path("rapport/", views.rapport_view, name="rapport"),
     path("rapport/export.xlsx", views.rapport_export_xlsx, name="rapport_export_xlsx"),
 
+    # Personnel + Pointage (côté entreprise, partagé tous packs).
+    path("personnel/", views.personnel, name="personnel"),
+    path("pointage/", views.pointage, name="pointage"),
+    path("pointage/recap/", views.pointage_recap, name="pointage_recap"),
+
     # Console gestionnaire (plateforme) — réservée au superuser.
     path("gestion/", views.gestion_clients, name="gestion_clients"),
     path("gestion/client/nouveau/", views.gestion_client_edit, name="gestion_client_nouveau"),

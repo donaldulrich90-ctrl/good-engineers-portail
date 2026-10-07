@@ -1,0 +1,70 @@
+{% extends "portal/base.html" %}
+{% block titre %}Personnel — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <h2 style="margin:0">Personnel — {{ entreprise.nom }}</h2>
+  <span class="mut" style="font-size:13px">Saisi une seule fois, pour tous vos modules</span>
+</div>
+{% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
+{% if ok %}<p style="color:var(--ok)">{{ ok }}</p>{% endif %}
+
+<div class="card" style="padding:0;margin-top:14px">
+  <table>
+    <thead><tr><th>Nom</th><th>Matricule</th><th>Poste</th><th>Sous-traitant</th><th>État</th><th></th></tr></thead>
+    <tbody>
+      {% for e in employes %}
+      <tr>
+        <td><strong>{{ e.nom }}</strong></td>
+        <td>{{ e.matricule|default:"—" }}</td>
+        <td>{{ e.poste|default:"—" }}</td>
+        <td>{% if e.sous_traitant %}<span class="pill ok">oui</span>{% else %}<span class="mut">non</span>{% endif %}</td>
+        <td>{% if e.actif %}<span class="pill ok">actif</span>{% else %}<span class="pill off">inactif</span>{% endif %}</td>
+        <td style="text-align:right">
+          {% if peut_gerer %}
+          <form method="post" style="display:inline">{% csrf_token %}
+            <input type="hidden" name="employe_id" value="{{ e.id }}">
+            {% if e.actif %}
+              <button class="btn" name="action" value="desactiver" type="submit">Désactiver</button>
+            {% else %}
+              <button class="btn" name="action" value="activer" type="submit">Réactiver</button>
+            {% endif %}
+            <button class="btn" name="action" value="supprimer" type="submit" onclick="return confirm('Supprimer définitivement ?')">Supprimer</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="mut" style="padding:18px">Aucun employé. Ajoute le premier ci-dessous.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if peut_gerer %}
+<div class="card">
+  <strong>Ajouter un employé</strong>
+  <form method="post" style="margin-top:8px">
+    {% csrf_token %}
+    <div class="grid">
+      <div>
+        <label for="nom">Nom complet</label>
+        <input id="nom" name="nom" required>
+        <label for="matricule">Matricule</label>
+        <input id="matricule" name="matricule" placeholder="facultatif">
+      </div>
+      <div>
+        <label for="poste">Intitulé de poste</label>
+        <input id="poste" name="poste" list="postes" placeholder="ex: Opérateur de foreuse">
+        <datalist id="postes">
+          {% for p in postes_suggeres %}<option value="{{ p }}">{% endfor %}
+        </datalist>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+          <input type="checkbox" name="sous_traitant" style="width:auto"> Sous-traitant
+        </label>
+      </div>
+    </div>
+    <button class="btn primaire" type="submit" style="margin-top:14px">Ajouter</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

@@ -44,6 +44,8 @@
       {% if user.is_authenticated %}
         <a href="{% url 'dashboard' %}">Accueil</a> ·
         <a href="{% url 'rapport' %}">Rapport</a> ·
+        <a href="{% url 'personnel' %}">Personnel</a> ·
+        <a href="{% url 'pointage' %}">Pointage</a> ·
         {% if user.is_superuser %}<a href="{% url 'gestion_clients' %}">Gestion</a> · {% endif %}
         <a href="{% url 'logout' %}">Déconnexion</a>
       {% endif %}

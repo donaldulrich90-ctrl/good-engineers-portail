@@ -21,7 +21,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
 
-from .models import Entreprise, JetonConsomme, Profil
+from .models import Employe, Entreprise, JetonConsomme, Pointage, Profil
 from .services import (
     creer_entreprise_forage,
     creer_entreprise_mine,
@@ -422,4 +422,160 @@ def gestion_comptes(request, client_id):
     return render(request, "portal/gestion/comptes.html", {
         "ent": ent, "comptes": comptes, "erreur": erreur, "ok": ok,
         "offre": OFFRE_LABELS.get(_offre(ent), "—"),
+    })
+
+
+# ==========================================================================
+# PERSONNEL + POINTAGE — côté entreprise (saisi une seule fois, tous packs)
+# ==========================================================================
+import calendar as _calendar
+
+
+def _entreprise_courante(request):
+    """L'entreprise du compte connecté ; un superuser peut viser ?entreprise=<id>."""
+    profil = _profil(request)
+    if profil is not None:
+        return profil.entreprise, profil
+    if request.user.is_superuser:
+        eid = request.GET.get("entreprise") or request.POST.get("entreprise")
+        if eid:
+            return get_object_or_404(Entreprise, pk=eid), None
+    return None, None
+
+
+def _peut_gerer_personnel(profil):
+    # Gérer la liste du personnel : admin du compte client (ou superuser).
+    return profil is None or profil.role_portail == "admin"
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def personnel(request):
+    ent, profil = _entreprise_courante(request)
+    if ent is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    erreur = ""
+    ok = ""
+    peut_gerer = _peut_gerer_personnel(profil)
+
+    if request.method == "POST":
+        if not peut_gerer:
+            erreur = "Seul un administrateur du compte peut modifier le personnel."
+        else:
+            action = request.POST.get("action")
+            if action == "supprimer":
+                Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).delete()
+                ok = "Employé supprimé."
+            elif action == "desactiver":
+                Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).update(actif=False)
+                ok = "Employé désactivé."
+            elif action == "activer":
+                Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).update(actif=True)
+                ok = "Employé réactivé."
+            else:
+                nom = (request.POST.get("nom") or "").strip()
+                if not nom:
+                    erreur = "Le nom est obligatoire."
+                else:
+                    Employe.objects.create(
+                        entreprise=ent, nom=nom,
+                        matricule=(request.POST.get("matricule") or "").strip(),
+                        poste=(request.POST.get("poste") or "").strip(),
+                        sous_traitant=bool(request.POST.get("sous_traitant")),
+                    )
+                    ok = f"Employé « {nom} » ajouté."
+
+    employes = ent.employes.all()
+    return render(request, "portal/pointage/personnel.html", {
+        "entreprise": ent, "employes": employes, "erreur": erreur, "ok": ok,
+        "peut_gerer": peut_gerer, "postes_suggeres": Employe.POSTES_SUGGERES,
+    })
+
+
+def _parse_date(s, defaut):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return defaut
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def pointage(request):
+    ent, profil = _entreprise_courante(request)
+    if ent is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    jour = _parse_date(request.GET.get("date") or request.POST.get("date"), date.today())
+    ok = ""
+
+    employes = list(ent.employes.filter(actif=True))
+    if request.method == "POST":
+        for e in employes:
+            statut = request.POST.get(f"statut_{e.id}")
+            if not statut:
+                continue
+            poste = request.POST.get(f"poste_{e.id}", "")
+            heures_raw = (request.POST.get(f"heures_{e.id}") or "0").replace(",", ".")
+            try:
+                heures = float(heures_raw)
+            except ValueError:
+                heures = 0
+            note = (request.POST.get(f"note_{e.id}") or "").strip()
+            Pointage.objects.update_or_create(
+                employe=e, date=jour,
+                defaults={"entreprise": ent, "statut": statut, "poste": poste,
+                          "heures": heures, "note": note},
+            )
+        ok = f"Pointage du {jour:%d/%m/%Y} enregistré."
+
+    existants = {p.employe_id: p for p in Pointage.objects.filter(entreprise=ent, date=jour)}
+    lignes = []
+    for e in employes:
+        p = existants.get(e.id)
+        lignes.append({
+            "e": e,
+            "statut": p.statut if p else "present",
+            "poste": p.poste if p else "",
+            "heures": (f"{p.heures:.2f}" if p else ""),
+            "note": p.note if p else "",
+        })
+    return render(request, "portal/pointage/pointage.html", {
+        "entreprise": ent, "lignes": lignes, "ok": ok,
+        "date": jour.strftime("%Y-%m-%d"), "date_fr": jour.strftime("%d/%m/%Y"),
+        "statuts": Pointage.STATUTS, "postes": Pointage.POSTES,
+    })
+
+
+@login_required
+def pointage_recap(request):
+    ent, profil = _entreprise_courante(request)
+    if ent is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    today = date.today()
+    try:
+        annee, mois = (request.GET.get("mois") or today.strftime("%Y-%m")).split("-")
+        annee, mois = int(annee), int(mois)
+    except (ValueError, TypeError):
+        annee, mois = today.year, today.month
+    debut = date(annee, mois, 1)
+    fin = date(annee, mois, _calendar.monthrange(annee, mois)[1])
+
+    pts = Pointage.objects.filter(entreprise=ent, date__gte=debut, date__lte=fin).select_related("employe")
+    par_emp = {}
+    for p in pts:
+        r = par_emp.setdefault(p.employe_id, {
+            "employe": p.employe, "present": 0, "absent": 0, "conge": 0,
+            "repos": 0, "maladie": 0, "heures": 0.0,
+        })
+        if p.statut in r:
+            r[p.statut] += 1
+        r["heures"] += float(p.heures or 0)
+    lignes = sorted(par_emp.values(), key=lambda x: x["employe"].nom)
+    for r in lignes:
+        r["heures"] = round(r["heures"], 1)
+
+    return render(request, "portal/pointage/recap.html", {
+        "entreprise": ent, "lignes": lignes,
+        "mois": f"{annee:04d}-{mois:02d}",
+        "mois_fr": debut.strftime("%m/%Y"),
     })
