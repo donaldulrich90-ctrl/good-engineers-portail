@@ -65,6 +65,32 @@ def propager_etat_mine(tenant_id, active: bool):
     _post_state(url, {"tenant": tenant_id, "active": bool(active)}, "Mine")
 
 
+def creer_entreprise_forage(nom, slug):
+    """Crée (ou retrouve) l'entreprise dans Forage. Renvoie (enterpriseId, erreur)."""
+    url = f"{settings.FORAGE_BASE_URL}/api/service/enterprise"
+    try:
+        r = requests.post(url, json={"name": nom, "slug": slug}, headers=_HEADERS,
+                          timeout=settings.METRICS_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return r.json().get("id"), None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Création entreprise Forage KO (%s): %s", nom, e)
+        return None, str(e)
+
+
+def creer_entreprise_mine(nom, slug):
+    """Crée (ou retrouve) le tenant dans la Mine. Renvoie (tenant, erreur)."""
+    url = f"{settings.MINE_BASE_URL}/api/service/enterprise/"
+    try:
+        r = requests.post(url, json={"name": nom, "tenant": slug}, headers=_HEADERS,
+                          timeout=settings.METRICS_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return r.json().get("tenant"), None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Création entreprise Mine KO (%s): %s", nom, e)
+        return None, str(e)
+
+
 def creer_user_forage(enterprise_id, username, password, role):
     """Crée/maj le compte dans l'app Forage. Renvoie (ok, erreur)."""
     if enterprise_id is None:

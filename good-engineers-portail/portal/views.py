@@ -23,6 +23,8 @@ from django.views.decorators.http import require_http_methods
 
 from .models import Entreprise, JetonConsomme, Profil
 from .services import (
+    creer_entreprise_forage,
+    creer_entreprise_mine,
     creer_user_forage,
     creer_user_mine,
     fetch_forage_metrics,
@@ -311,16 +313,34 @@ def gestion_client_edit(request, client_id=None):
 
         if not nom:
             erreur = "Le nom est obligatoire."
-        elif module_forage and not forage_id:
-            erreur = "Module Forage coché : renseigne l'enterpriseId Forage."
-        elif module_mine and not mine_tenant:
-            erreur = "Module Mine coché : renseigne le tenant Mine."
         else:
+            soucis = []
+            try:
+                forage_val = int(forage_id) if (module_forage and forage_id) else None
+            except ValueError:
+                forage_val = None
+            mine_val = mine_tenant if (module_mine and mine_tenant) else ""
+
+            # Un module coché sans correspondance : on crée l'entreprise dans
+            # l'application et on récupère son identifiant automatiquement.
+            if module_forage and forage_val is None:
+                fid, err = creer_entreprise_forage(nom, slug)
+                if fid is not None:
+                    forage_val = int(fid)
+                else:
+                    soucis.append(f"Forage ({err})")
+            if module_mine and not mine_val:
+                tid, err = creer_entreprise_mine(nom, slug)
+                if tid:
+                    mine_val = tid
+                else:
+                    soucis.append(f"Mine ({err})")
+
             champs = {
                 "nom": nom, "slug": slug, "active": active,
                 "module_forage": module_forage, "module_mine": module_mine,
-                "forage_enterprise_id": int(forage_id) if (module_forage and forage_id) else None,
-                "mine_tenant_id": mine_tenant if module_mine else "",
+                "forage_enterprise_id": forage_val if module_forage else None,
+                "mine_tenant_id": mine_val if module_mine else "",
             }
             try:
                 if ent:
@@ -329,7 +349,11 @@ def gestion_client_edit(request, client_id=None):
                     ent.save()
                 else:
                     ent = Entreprise.objects.create(**champs)
-                return redirect(reverse("gestion_comptes", args=[ent.pk]))
+                if not soucis:
+                    return redirect(reverse("gestion_comptes", args=[ent.pk]))
+                erreur = ("Entreprise enregistrée, mais la création a échoué dans : "
+                          + " ; ".join(soucis)
+                          + ". Réessaie (enregistre à nouveau) quand l'application répond.")
             except Exception as e:  # noqa: BLE001
                 erreur = f"Enregistrement impossible : {e}"
 

@@ -25,16 +25,16 @@
       </label>
     </div>
 
-    <label for="forage_enterprise_id">enterpriseId côté Forage (si module Forage)</label>
-    <input id="forage_enterprise_id" name="forage_enterprise_id" value="{{ ent.forage_enterprise_id|default:'' }}" placeholder="ex: 2">
+    <label for="forage_enterprise_id">enterpriseId côté Forage — laisser vide = créé automatiquement</label>
+    <input id="forage_enterprise_id" name="forage_enterprise_id" value="{{ ent.forage_enterprise_id|default:'' }}" placeholder="vide = le portail crée l'entreprise dans Forage">
 
-    <label for="mine_tenant_id">tenant côté Mine (si module Mine)</label>
-    <input id="mine_tenant_id" name="mine_tenant_id" value="{{ ent.mine_tenant_id|default:'' }}" placeholder="ex: default ou un slug">
+    <label for="mine_tenant_id">tenant côté Mine — laisser vide = créé automatiquement</label>
+    <input id="mine_tenant_id" name="mine_tenant_id" value="{{ ent.mine_tenant_id|default:'' }}" placeholder="vide = le portail crée l'entreprise dans la Mine">
 
     <button class="btn primaire" type="submit" style="margin-top:16px">Enregistrer et gérer les accès →</button>
   </form>
   <p class="mut" style="font-size:13px;margin:12px 0 0">
-    Décocher un module le détache : il disparaît côté client et le portail demande à l'application de désactiver l'entreprise. Les données restent en base.
+    Coche un module et laisse sa case d'identifiant vide : le portail crée l'entreprise dans l'application et remplit l'identifiant tout seul. Renseigne-le seulement pour relier une entreprise qui existe déjà. Décocher un module le détache (données conservées).
   </p>
 </div>
 {% endblock %}
