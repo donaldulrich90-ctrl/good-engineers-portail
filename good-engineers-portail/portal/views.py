@@ -191,15 +191,20 @@ def _collecte(profil, start, end):
         if err:
             data["erreurs"].append(f"Mine : {err}")
 
-    # Vue croisée simple : coûts et carburant additionnés si les deux existent.
+    # Vue croisée opérationnelle (sans coûts) : production, arrêts, dispo, effectif.
     croise = None
-    if data["forage"] and data["mine"]:
-        f, m = data["forage"], data["mine"]
+    if data["forage"] or data["mine"]:
+        f = data["forage"] or {}
+        m = data["mine"] or {}
         croise = {
-            "cout_total": round((f.get("cout_total") or 0) + (m.get("cout_total") or 0), 2),
+            "metres": round(f.get("metres_total") or 0, 1),
+            "production_t": round(m.get("production_total") or 0, 1),
+            "arrets_h": round((f.get("arrets_h_total") or 0) + (m.get("arrets_h_total") or 0), 1),
+            "metres_perdus_est": round(f.get("metres_perdus_est_total") or 0, 0),
             "carburant_litres": round((f.get("carburant_litres") or 0)
                                       + (m.get("carburant_litres") or 0), 1),
             "effectif": (f.get("effectif") or 0) + (m.get("effectif") or 0),
+            "dispo_pct": f.get("dispo_moyenne_pct"),
         }
     data["croise"] = croise
     return data
@@ -211,6 +216,17 @@ def rapport_view(request):
     if profil is None:
         return render(request, "portal/sans_entreprise.html", status=200)
     start, end = _periode(request)
+
+    # Commentaire éditable (explication des écarts) pour cette période.
+    from .models import RapportCommentaire
+    commentaire_obj, _ = RapportCommentaire.objects.get_or_create(
+        entreprise=profil.entreprise, start=start, end=end)
+    if request.method == "POST" and request.POST.get("action") == "commentaire":
+        commentaire_obj.texte = (request.POST.get("texte") or "").strip()
+        commentaire_obj.save()
+        from django.shortcuts import redirect
+        return redirect(f"{request.path}?start={start:%Y-%m-%d}&end={end:%Y-%m-%d}")
+
     data = _collecte(profil, start, end)
     return render(request, "portal/rapport.html", {
         "entreprise": profil.entreprise,
@@ -220,6 +236,7 @@ def rapport_view(request):
         "end_fr": end.strftime("%d/%m/%Y"),
         "data": data,
         "data_json": json.dumps(data),
+        "commentaire": commentaire_obj.texte,
     })
 
 
@@ -259,8 +276,8 @@ def rapport_export_xlsx(request):
     if data["forage"]:
         bloc("FORAGE", data["forage"], [
             ("engin", "Foreuse"), ("metres", "Mètres forés"),
-            ("rop", "ROP moy."), ("arrets", "Arrêts"),
-            ("consommables_cout", "Coût consommables"),
+            ("rop", "ROP moy."), ("dispo_pct", "Dispo %"),
+            ("arrets_h", "Arrêts (h)"), ("metres_perdus_est", "Mètres perdus (est.)"),
         ])
     if data["mine"]:
         bloc("MINE", data["mine"], [

@@ -1,62 +1,249 @@
 {% extends "portal/base.html" %}
 {% block titre %}Rapport consolidé — {{ entreprise.nom }}{% endblock %}
 {% block contenu %}
-<div class="card">
-  <h2 style="margin-top:0">Rapport consolidé — {{ entreprise.nom }}</h2>
-  <form method="get" action="{% url 'rapport' %}"
-        style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
-    <div style="flex:1;min-width:140px"><label for="start">Du</label>
-      <input id="start" type="date" name="start" value="{{ start }}"></div>
-    <div style="flex:1;min-width:140px"><label for="end">Au</label>
-      <input id="end" type="date" name="end" value="{{ end }}"></div>
-    <button class="btn primaire" type="submit">Actualiser</button>
-    <a class="btn" href="{% url 'rapport_export_xlsx' %}?start={{ start }}&end={{ end }}">Export Excel</a>
-    <button class="btn" type="button" onclick="window.print()">Imprimer / PDF</button>
-  </form>
-  <p class="mut" style="font-size:13px;margin:10px 0 0">Période : {{ start_fr }} au {{ end_fr }}</p>
-  {% for e in data.erreurs %}<p class="err" style="font-size:13px;margin:4px 0 0">⚠ {{ e }}</p>{% endfor %}
+<style>
+  :root{--r-acc:#d8812f;--r-ok:#2e9e6b;--r-warn:#e0a21f;--r-bad:#d9534f;--r-ink:#11141a;}
+  .r-wrap{max-width:1040px;margin:0 auto}
+  .r-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px}
+  .r-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+          border-bottom:3px solid var(--r-acc);padding-bottom:14px;margin-bottom:20px}
+  .r-head h1{margin:0;font-size:24px;letter-spacing:.3px}
+  .r-head .r-sub{color:var(--mut);font-size:13px;margin-top:4px}
+  .r-brand{text-align:right}
+  .r-brand .r-logo{font-weight:800;font-size:18px;color:var(--r-acc);letter-spacing:.5px}
+  .r-brand small{color:var(--mut)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .lab{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+  .kpi .val{font-size:26px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .val.acc{color:var(--r-acc)} .kpi .val.ok{color:var(--r-ok)} .kpi .val.warn{color:var(--r-warn)}
+  .sec{margin:26px 0}
+  .sec h2{font-size:17px;margin:0 0 12px;padding-left:10px;border-left:4px solid var(--r-acc)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel h3{margin:0 0 10px;font-size:14px;color:var(--txt)}
+  .chart-box{position:relative;height:240px}
+  table.r{width:100%;border-collapse:collapse;font-size:13px}
+  table.r th,table.r td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  table.r th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  table.r td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px}
+  .pill.bdn{background:rgba(217,83,79,.15);color:#f0a6a3}
+  .pill.stb{background:rgba(224,162,31,.15);color:#f0cf87}
+  .pill.gsa{background:rgba(58,130,246,.15);color:#a7c6f5}
+  .pill.aut{background:rgba(154,163,178,.15);color:#c3cad6}
+  .mut{color:var(--mut)} .err{color:#e0794a}
+  .cmt textarea{width:100%;min-height:90px;background:#0c0e13;color:var(--txt);border:1px solid var(--line);
+               border-radius:8px;padding:10px;font-size:13px;font-family:inherit;resize:vertical}
+  .note-auto{background:rgba(216,129,47,.08);border:1px solid rgba(216,129,47,.3);border-radius:10px;padding:12px 14px;font-size:13px}
+  .empty{padding:16px;color:var(--mut);text-align:center}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+  @media print{
+    @page{size:A4;margin:14mm}
+    header,nav,.r-controls,.btn,.no-print{display:none !important}
+    body{background:#fff;color:#111}
+    .r-wrap{max-width:none}
+    .kpi,.panel,.note-auto{background:#fff;border:1px solid #d7d3cd;box-shadow:none}
+    .kpi .val{color:#111 !important}
+    .sec,.panel,.kpi{break-inside:avoid}
+    table.r th{color:#555}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+
+<div class="r-wrap">
+  <!-- Contrôles (masqués à l'impression) -->
+  <div class="card r-controls no-print">
+    <form method="get" action="{% url 'rapport' %}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;flex:1">
+      <div><label for="start">Du</label><input id="start" type="date" name="start" value="{{ start }}"></div>
+      <div><label for="end">Au</label><input id="end" type="date" name="end" value="{{ end }}"></div>
+      <button class="btn primaire" type="submit">Actualiser</button>
+    </form>
+    <a class="btn" href="{% url 'rapport_export_xlsx' %}?start={{ start }}&end={{ end }}">⬇ Excel</a>
+    <button class="btn primaire" type="button" onclick="window.print()">🖨 Exporter PDF</button>
+  </div>
+
+  <!-- En-tête du rapport -->
+  <div class="r-head">
+    <div>
+      <h1>Rapport consolidé d'exploitation</h1>
+      <div class="r-sub">{{ entreprise.nom }} · Période du {{ start_fr }} au {{ end_fr }}</div>
+    </div>
+    <div class="r-brand">
+      <div class="r-logo">GOOD ENGINEERS</div>
+      <small>Ingénierie &amp; exploitation minière</small>
+    </div>
+  </div>
+
+  {% for e in data.erreurs %}<p class="err" style="font-size:13px">⚠ {{ e }}</p>{% endfor %}
+
+  <!-- KPIs -->
+  {% if data.croise %}
+  <div class="kpis">
+    {% if data.forage %}<div class="kpi"><div class="lab">Mètres forés</div><div class="val acc">{{ data.croise.metres|floatformat:0 }} m</div></div>{% endif %}
+    {% if data.mine %}<div class="kpi"><div class="lab">Production</div><div class="val acc">{{ data.croise.production_t|floatformat:0 }} t</div></div>{% endif %}
+    {% if data.croise.dispo_pct != None %}<div class="kpi"><div class="lab">Disponibilité moy.</div><div class="val {% if data.croise.dispo_pct >= 85 %}ok{% else %}warn{% endif %}">{{ data.croise.dispo_pct|floatformat:0 }} %</div></div>{% endif %}
+    <div class="kpi"><div class="lab">Temps d'arrêt</div><div class="val warn">{{ data.croise.arrets_h|floatformat:1 }} h</div></div>
+    {% if data.forage %}<div class="kpi"><div class="lab">Mètres perdus (est.)</div><div class="val">{{ data.croise.metres_perdus_est|floatformat:0 }} m</div></div>{% endif %}
+    <div class="kpi"><div class="lab">Effectif sur site</div><div class="val">{{ data.croise.effectif }}</div></div>
+  </div>
+  {% endif %}
+
+  <!-- Graphes -->
+  <div class="sec">
+    <h2>Indicateurs visuels</h2>
+    <div class="grid2">
+      {% if data.forage %}
+      <div class="panel"><h3>Mètres forés par foreuse</h3><div class="chart-box"><canvas id="chForageMetres"></canvas></div></div>
+      <div class="panel"><h3>Arrêts par motif — Forage (h)</h3><div class="chart-box"><canvas id="chForageArrets"></canvas></div></div>
+      {% endif %}
+      {% if data.mine %}
+      <div class="panel"><h3>Production par engin (t)</h3><div class="chart-box"><canvas id="chMineProd"></canvas></div></div>
+      <div class="panel"><h3>Arrêts par motif — Mine (h)</h3><div class="chart-box"><canvas id="chMineArrets"></canvas></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Détail production -->
+  {% if data.forage %}
+  <div class="sec">
+    <h2>Production — Forage</h2>
+    <div class="panel" style="padding:0">
+      <table class="r">
+        <thead><tr><th>Foreuse</th><th class="num">Mètres</th><th class="num">ROP moy.</th><th class="num">Dispo %</th><th class="num">Arrêts (h)</th><th class="num">Mètres perdus (est.)</th></tr></thead>
+        <tbody>
+          {% for r in data.forage.par_engin %}
+          <tr><td><strong>{{ r.engin }}</strong></td><td class="num">{{ r.metres|floatformat:1 }}</td><td class="num">{{ r.rop|floatformat:2 }}</td><td class="num">{% if r.dispo_pct != None %}{{ r.dispo_pct|floatformat:0 }}{% else %}—{% endif %}</td><td class="num">{{ r.arrets_h|floatformat:1 }}</td><td class="num">{{ r.metres_perdus_est|floatformat:0 }}</td></tr>
+          {% empty %}<tr><td colspan="6" class="empty">Aucune donnée de forage sur la période.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if data.mine %}
+  <div class="sec">
+    <h2>Production — Mine</h2>
+    <div class="panel" style="padding:0">
+      <table class="r">
+        <thead><tr><th>Engin</th><th class="num">Production (t)</th><th class="num">Heures</th><th class="num">t/h</th><th class="num">L/t</th><th class="num">Arrêts (h)</th></tr></thead>
+        <tbody>
+          {% for r in data.mine.par_engin %}
+          <tr><td><strong>{{ r.engin }}</strong></td><td class="num">{{ r.production|floatformat:1 }}</td><td class="num">{{ r.heures|floatformat:1 }}</td><td class="num">{{ r.tph }}</td><td class="num">{{ r.lpt }}</td><td class="num">{{ r.arrets_h|floatformat:1 }}</td></tr>
+          {% empty %}<tr><td colspan="6" class="empty">Aucune donnée de mine sur la période.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Écarts de production -->
+  <div class="sec">
+    <h2>Explication des écarts de production</h2>
+    <div class="note-auto">
+      <strong>Analyse automatique :</strong>
+      {% if data.forage %}sur la période, <strong>{{ data.forage.arrets_h_total|floatformat:1 }} h</strong> d'arrêt côté forage, soit une perte estimée de <strong>{{ data.forage.metres_perdus_est_total|floatformat:0 }} m</strong>{% if data.forage.dispo_moyenne_pct != None %} (disponibilité moyenne {{ data.forage.dispo_moyenne_pct|floatformat:0 }} %){% endif %}.{% endif %}
+      {% if data.mine %} Côté mine, <strong>{{ data.mine.arrets_h_total|floatformat:1 }} h</strong> d'arrêt enregistrées.{% endif %}
+      Les principaux motifs sont détaillés dans la section « Arrêts » ci-dessous.
+    </div>
+    <form method="post" action="{% url 'rapport' %}?start={{ start }}&end={{ end }}" class="cmt" style="margin-top:12px">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="commentaire">
+      <label class="mut" style="font-size:12px">Commentaire du responsable (explication de la période)</label>
+      <textarea name="texte" placeholder="Ex. : écart lié à une panne hydraulique sur FOR-2 et à l'attente d'eau en semaine 2…">{{ commentaire }}</textarea>
+      <button class="btn primaire no-print" type="submit" style="margin-top:8px">Enregistrer le commentaire</button>
+    </form>
+    {% if commentaire %}<div class="note-auto" style="margin-top:10px;background:rgba(46,158,107,.08);border-color:rgba(46,158,107,.3)"><strong>Commentaire :</strong> {{ commentaire|linebreaksbr }}</div>{% endif %}
+  </div>
+
+  <!-- Arrêts -->
+  <div class="sec">
+    <h2>Arrêts &amp; interruptions</h2>
+    <div class="grid2">
+      {% if data.forage %}
+      <div class="panel" style="padding:0">
+        <h3 style="padding:14px 16px 0">Forage — par motif</h3>
+        <table class="r"><thead><tr><th>Motif</th><th>Catégorie</th><th class="num">Heures</th></tr></thead><tbody>
+          {% for a in data.forage.arrets_par_motif %}
+          <tr><td>{{ a.motif }}</td><td><span class="pill {% if a.categorie == 'Panne' %}bdn{% elif a.categorie == 'Attente' %}stb{% elif a.categorie == 'Délai' %}gsa{% else %}aut{% endif %}">{{ a.categorie }}</span></td><td class="num">{{ a.heures|floatformat:1 }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="empty">Aucun arrêt enregistré.</td></tr>{% endfor %}
+        </tbody></table>
+      </div>
+      {% endif %}
+      {% if data.mine %}
+      <div class="panel" style="padding:0">
+        <h3 style="padding:14px 16px 0">Mine — par motif</h3>
+        <table class="r"><thead><tr><th>Motif</th><th class="num">Occur.</th><th class="num">Heures</th></tr></thead><tbody>
+          {% for a in data.mine.arrets_par_motif %}
+          <tr><td>{{ a.motif }}</td><td class="num">{{ a.count }}</td><td class="num">{{ a.heures|floatformat:1 }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="empty">Aucun arrêt enregistré.</td></tr>{% endfor %}
+        </tbody></table>
+      </div>
+      {% endif %}
+    </div>
+    {% if data.mine and data.mine.arrets_detail %}
+    <div class="panel" style="padding:0;margin-top:16px">
+      <h3 style="padding:14px 16px 0">Mine — détail des incidents (impact &amp; mesures)</h3>
+      <table class="r"><thead><tr><th>Date</th><th>Engin</th><th>Motif</th><th class="num">Durée (h)</th><th>Impact production</th><th>Mesures</th></tr></thead><tbody>
+        {% for a in data.mine.arrets_detail %}
+        <tr><td>{{ a.date }}</td><td>{{ a.engin }}</td><td>{{ a.motif }}</td><td class="num">{{ a.heures|floatformat:1 }}</td><td>{{ a.impact|default:"—" }}</td><td>{{ a.mesures|default:"—" }}</td></tr>
+        {% endfor %}
+      </tbody></table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Maintenance -->
+  <div class="sec">
+    <h2>Maintenance</h2>
+    <div class="panel" style="padding:0">
+      <table class="r"><thead><tr><th>Date</th><th>Module</th><th>Engin</th><th>Type</th><th>Technicien</th><th>Observations</th></tr></thead><tbody>
+        {% for m in data.forage.maintenance %}
+        <tr><td>{{ m.date }}</td><td class="mut">Forage</td><td>{{ m.engin }}</td><td>{{ m.type }}</td><td>{{ m.technician|default:"—" }}</td><td>{{ m.description|default:"—" }}</td></tr>
+        {% endfor %}
+        {% for m in data.mine.maintenance %}
+        <tr><td>{{ m.date }}</td><td class="mut">Mine</td><td>{{ m.engin }}</td><td>{{ m.type }}</td><td>{{ m.technician|default:"—" }}</td><td>{{ m.description|default:"—" }}</td></tr>
+        {% endfor %}
+        {% if not data.forage.maintenance and not data.mine.maintenance %}<tr><td colspan="6" class="empty">Aucune intervention de maintenance sur la période.</td></tr>{% endif %}
+      </tbody></table>
+    </div>
+  </div>
+
+  {% if not data.forage and not data.mine %}
+  <div class="panel"><p class="empty">Aucun module actif à rapporter pour cette entreprise.</p></div>
+  {% endif %}
 </div>
 
-{% if data.croise %}
-<div class="card">
-  <strong>Vue croisée</strong>
-  <table style="margin-top:8px">
-    <tr><th>Coût total d'exploitation</th><td>{{ data.croise.cout_total }}</td></tr>
-    <tr><th>Carburant total (foreuses + engins)</th><td>{{ data.croise.carburant_litres }} L</td></tr>
-    <tr><th>Effectif total sur site</th><td>{{ data.croise.effectif }}</td></tr>
-  </table>
-</div>
-{% endif %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function(){
+  var DATA = {{ data_json|safe }};
+  var ACC = '#d8812f', OK = '#2e9e6b', WARN = '#e0a21f', BAD = '#d9534f', BLU = '#3a82f6', MUT = '#9aa3b2';
+  var common = { responsive:true, maintainAspectRatio:false, animation:false,
+    plugins:{ legend:{ labels:{ color:'#c3cad6', font:{size:11} } } },
+    scales:{ x:{ ticks:{ color:MUT, font:{size:10} }, grid:{ color:'rgba(255,255,255,.05)' } },
+             y:{ ticks:{ color:MUT, font:{size:10} }, grid:{ color:'rgba(255,255,255,.06)' }, beginAtZero:true } } };
+  function mk(id, cfg){ var el = document.getElementById(id); if(el && window.Chart) new Chart(el, cfg); }
+  var catColor = function(c){ return c==='Panne'?BAD : c==='Attente'?WARN : c==='Délai'?BLU : MUT; };
 
-{% if data.forage %}
-<div class="card">
-  <strong>Forage</strong>
-  <table style="margin-top:8px">
-    <thead><tr><th>Foreuse</th><th>Mètres forés</th><th>ROP moy.</th><th>Arrêts</th><th>Coût consommables</th></tr></thead>
-    <tbody>
-      {% for r in data.forage.par_engin %}
-      <tr><td>{{ r.engin }}</td><td>{{ r.metres }}</td><td>{{ r.rop }}</td><td>{{ r.arrets }}</td><td>{{ r.consommables_cout }}</td></tr>
-      {% empty %}<tr><td colspan="5" class="mut">Aucune donnée sur la période.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if data.mine %}
-<div class="card">
-  <strong>Mine</strong>
-  <table style="margin-top:8px">
-    <thead><tr><th>Engin</th><th>Production (t)</th><th>Heures</th><th>Carburant (L)</th><th>t/h</th><th>L/t</th></tr></thead>
-    <tbody>
-      {% for r in data.mine.par_engin %}
-      <tr><td>{{ r.engin }}</td><td>{{ r.production }}</td><td>{{ r.heures }}</td><td>{{ r.carburant }}</td><td>{{ r.tph }}</td><td>{{ r.lpt }}</td></tr>
-      {% empty %}<tr><td colspan="6" class="mut">Aucune donnée sur la période.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if not data.forage and not data.mine %}
-<div class="card"><p class="mut">Aucun module actif à rapporter pour cette entreprise.</p></div>
-{% endif %}
+  if (DATA.forage) {
+    var fe = DATA.forage.par_engin || [];
+    mk('chForageMetres', { type:'bar', data:{ labels: fe.map(function(r){return r.engin;}),
+      datasets:[{ label:'Mètres', data: fe.map(function(r){return r.metres;}), backgroundColor:ACC, borderRadius:4 }] }, options:common });
+    var fa = DATA.forage.arrets_par_motif || [];
+    mk('chForageArrets', { type:'bar', data:{ labels: fa.map(function(a){return a.motif;}),
+      datasets:[{ label:'Heures', data: fa.map(function(a){return a.heures;}), backgroundColor: fa.map(function(a){return catColor(a.categorie);}), borderRadius:4 }] },
+      options: Object.assign({}, common, { indexAxis:'y', plugins:{ legend:{ display:false } } }) });
+  }
+  if (DATA.mine) {
+    var me = DATA.mine.par_engin || [];
+    mk('chMineProd', { type:'bar', data:{ labels: me.map(function(r){return r.engin;}),
+      datasets:[{ label:'Production (t)', data: me.map(function(r){return r.production;}), backgroundColor:OK, borderRadius:4 }] }, options:common });
+    var ma = DATA.mine.arrets_par_motif || [];
+    mk('chMineArrets', { type:'bar', data:{ labels: ma.map(function(a){return a.motif;}),
+      datasets:[{ label:'Heures', data: ma.map(function(a){return a.heures;}), backgroundColor:WARN, borderRadius:4 }] },
+      options: Object.assign({}, common, { indexAxis:'y', plugins:{ legend:{ display:false } } }) });
+  }
+})();
+</script>
 {% endblock %}
