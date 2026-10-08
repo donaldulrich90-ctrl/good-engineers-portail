@@ -194,3 +194,24 @@ class Pointage(models.Model):
 
     def __str__(self):
         return f"{self.employe} — {self.date} ({self.statut})"
+
+
+class RapportCommentaire(models.Model):
+    """Commentaire libre, éditable, attaché au rapport consolidé d'une
+    entreprise pour une période donnée (explication des écarts de production)."""
+
+    entreprise = models.ForeignKey(Entreprise, on_delete=models.CASCADE, related_name="rapport_commentaires")
+    start = models.DateField()
+    end = models.DateField()
+    texte = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "commentaire de rapport"
+        verbose_name_plural = "commentaires de rapport"
+        constraints = [
+            models.UniqueConstraint(fields=["entreprise", "start", "end"], name="rapportcommentaire_unique_periode"),
+        ]
+
+    def __str__(self):
+        return f"Commentaire {self.entreprise} {self.start}→{self.end}"
