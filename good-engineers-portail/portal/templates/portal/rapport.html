@@ -38,15 +38,49 @@
   .note-auto{background:rgba(216,129,47,.08);border:1px solid rgba(216,129,47,.3);border-radius:10px;padding:12px 14px;font-size:13px}
   .empty{padding:16px;color:var(--mut);text-align:center}
   @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+  .print-foot{display:none}
+  /* ── Impression : rapport consolidé compacté sur UNE page A4 ─────────── */
   @media print{
-    @page{size:A4;margin:14mm}
+    @page{size:A4;margin:9mm}
     header,nav,.r-controls,.btn,.no-print{display:none !important}
-    body{background:#fff;color:#111}
-    .r-wrap{max-width:none}
-    .kpi,.panel,.note-auto{background:#fff;border:1px solid #d7d3cd;box-shadow:none}
-    .kpi .val{color:#111 !important}
-    .sec,.panel,.kpi{break-inside:avoid}
-    table.r th{color:#555}
+    html,body{background:#fff;color:#111}
+    .r-wrap{max-width:none;font-size:8.3px;line-height:1.3}
+    /* backgrounds blancs, pas d'ombres */
+    .kpi,.panel,.note-auto{background:#fff !important;border:1px solid #d7d3cd;box-shadow:none}
+    .sec,.panel,.kpi,.note-auto{break-inside:avoid}
+    /* en-tête compact */
+    .r-head{padding-bottom:6px;margin-bottom:8px;border-bottom-width:2px}
+    .r-head h1{font-size:14px}
+    .r-head .r-sub{font-size:9px}
+    .r-brand .r-logo{font-size:12px}
+    /* KPIs : une seule rangée dense */
+    .kpis{gap:6px;margin-bottom:9px;grid-template-columns:repeat(6,1fr)}
+    .kpi{padding:5px 7px;border-radius:7px}
+    .kpi .lab{font-size:6.6px;letter-spacing:.03em}
+    .kpi .val{font-size:15px;margin-top:1px;color:#111 !important}
+    /* sections & panneaux resserrés */
+    .sec{margin:0 0 9px}
+    .sec h2{font-size:10.5px;margin:0 0 5px;border-left-width:3px;padding-left:7px}
+    .panel{padding:8px}
+    .panel h3{font-size:9px;margin:0 0 5px;padding:0 !important}
+    .grid2{gap:7px}
+    /* 4 graphes sur une ligne, compacts */
+    .r-charts{grid-template-columns:repeat(4,1fr)}
+    .chart-box{height:84px}
+    /* deux tables Production côte à côte */
+    .r-two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .r-two .sec{margin:0}
+    /* tables denses */
+    table.r{font-size:7.7px}
+    table.r th,table.r td{padding:2.5px 5px}
+    table.r th{font-size:7px;color:#555}
+    .pill{font-size:7px;padding:1px 6px;background:#eee !important;color:#333 !important}
+    /* écarts : note + commentaire resserrés */
+    .note-auto{padding:6px 8px;font-size:8px}
+    .cmt label{font-size:8px}
+    .cmt textarea{min-height:36px;font-size:8px;background:#fff !important;color:#111 !important;border-color:#d7d3cd}
+    /* pied de page */
+    .print-foot{display:block;font-size:7.5px;color:#777;text-align:center;border-top:1px solid #ddd;padding-top:5px;margin-top:8px}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
 </style>
@@ -92,7 +126,7 @@
   <!-- Graphes -->
   <div class="sec">
     <h2>Indicateurs visuels</h2>
-    <div class="grid2">
+    <div class="grid2 r-charts">
       {% if data.forage %}
       <div class="panel"><h3>Mètres forés par foreuse</h3><div class="chart-box"><canvas id="chForageMetres"></canvas></div></div>
       <div class="panel"><h3>Arrêts par motif — Forage (h)</h3><div class="chart-box"><canvas id="chForageArrets"></canvas></div></div>
@@ -105,6 +139,7 @@
   </div>
 
   <!-- Détail production -->
+  <div class="r-two">
   {% if data.forage %}
   <div class="sec">
     <h2>Production — Forage</h2>
@@ -136,6 +171,7 @@
     </div>
   </div>
   {% endif %}
+  </div><!-- /r-two -->
 
   <!-- Écarts de production -->
   <div class="sec">
@@ -212,6 +248,8 @@
   {% if not data.forage and not data.mine %}
   <div class="panel"><p class="empty">Aucun module actif à rapporter pour cette entreprise.</p></div>
   {% endif %}
+
+  <div class="print-foot">GOOD ENGINEERS · {{ entreprise.nom }} · {{ start_fr }} – {{ end_fr }} · Détail exhaustif dans l'export Excel.</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
