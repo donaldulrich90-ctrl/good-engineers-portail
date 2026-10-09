@@ -28,7 +28,9 @@ from .services import (
     creer_user_forage,
     creer_user_mine,
     fetch_forage_metrics,
+    fetch_forage_plan,
     fetch_mine_metrics,
+    fetch_mine_plan,
 )
 from .sso import mint_token
 
@@ -595,4 +597,124 @@ def pointage_recap(request):
         "entreprise": ent, "lignes": lignes,
         "mois": f"{annee:04d}-{mois:02d}",
         "mois_fr": debut.strftime("%m/%Y"),
+    })
+
+
+# ---------------------------------------------------------------------------
+# SUIVI DU PLAN — consolidation Forage + Mine (planifié vs réel)
+
+def _plan_progress(plan, actuals):
+    """Progression mensuelle planifié vs réel pour l'affichage consolidé."""
+    from datetime import date, timedelta
+    if not plan:
+        return None
+
+    def pd(s):
+        try:
+            p = str(s)[:10].split("-")
+            return date(int(p[0]), int(p[1]), int(p[2]))
+        except (ValueError, IndexError, TypeError):
+            return None
+
+    actuals = actuals or {}
+
+    def sum_range(a, b):
+        da, db = pd(a), pd(b)
+        if not da or not db:
+            return 0.0
+        tot = 0.0
+        for k, v in actuals.items():
+            dk = pd(k)
+            if dk and da <= dk <= db:
+                try:
+                    tot += float(v or 0)
+                except (ValueError, TypeError):
+                    pass
+        return tot
+
+    months = plan.get("months") or []
+    today = date.today()
+    total_target = float(plan.get("totalTarget") or 0) or sum(float(m.get("target") or 0) for m in months)
+    cum_plan = cum_act = cum_plan_td = cum_act_td = 0.0
+    rows = []
+    for m in months:
+        tgt = float(m.get("target") or 0)
+        act = sum_range(m.get("start"), m.get("end"))
+        cum_plan += tgt
+        cum_act += act
+        pe, ps = pd(m.get("end")), pd(m.get("start"))
+        ended = bool(pe and pe < today)
+        ongoing = bool(ps and ps <= today and pe and pe >= today)
+        if ended or ongoing:
+            cum_plan_td += tgt
+            cum_act_td += act
+        rows.append({
+            "label": m.get("label"), "start": m.get("start"), "end": m.get("end"),
+            "target": round(tgt, 1), "actual": round(act, 1), "ecart": round(act - tgt, 1),
+            "cum_plan": round(cum_plan, 1), "cum_act": round(cum_act, 1),
+            "ended": ended, "ongoing": ongoing,
+        })
+
+    pct = (cum_act / total_target * 100) if total_target > 0 else 0
+    ecart = cum_act_td - cum_plan_td
+    ecart_pct = (ecart / cum_plan_td * 100) if cum_plan_td > 0 else 0
+    s0, e0 = pd(plan.get("startDate")), pd(plan.get("endDate"))
+    proj, rate = "—", 0.0
+    if s0:
+        elapsed_end = today if (not e0 or today < e0) else e0
+        days = max(1, (elapsed_end - s0).days + 1)
+        rate = cum_act / days
+        if rate > 0 and total_target > cum_act:
+            proj = (today + timedelta(days=int((total_target - cum_act) / rate) + 1)).strftime("%d/%m/%Y")
+        elif total_target > 0 and cum_act >= total_target:
+            proj = "Objectif atteint"
+
+    return {
+        "label": plan.get("label"), "unit": plan.get("unit") or "",
+        "total_target": round(total_target, 1), "cum_act": round(cum_act, 1),
+        "pct": round(pct), "ecart": round(ecart, 1), "ecart_pct": round(ecart_pct),
+        "late": ecart < 0 and abs(ecart_pct) >= 5, "rate": round(rate, 1),
+        "proj_end": proj, "end_date": plan.get("endDate") or "",
+        "rows": rows,
+        "chart": {
+            "labels": [r["label"] for r in rows],
+            "plan": [r["cum_plan"] for r in rows],
+            "act": [r["cum_act"] if (r["ended"] or r["ongoing"]) else None for r in rows],
+        },
+    }
+
+
+@login_required
+def suivi_plan_view(request):
+    profil = _profil(request)
+    if profil is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    ent = profil.entreprise
+    forage_prog = mine_prog = None
+    erreurs = []
+    if ent.module_forage and ent.forage_enterprise_id is not None:
+        res, err = fetch_forage_plan(ent.forage_enterprise_id)
+        if err:
+            erreurs.append(f"Forage : {err}")
+        elif res:
+            forage_prog = _plan_progress(res.get("plan"), res.get("actualsByDate"))
+    if ent.module_mine and ent.mine_tenant_id:
+        res, err = fetch_mine_plan(ent.mine_tenant_id)
+        if err:
+            erreurs.append(f"Mine : {err}")
+        elif res:
+            mine_prog = _plan_progress(res.get("plan"), res.get("actualsByDate"))
+    sections = []
+    if forage_prog:
+        sections.append({"key": "forage", "titre": "Forage (mètres)", "prog": forage_prog})
+    if mine_prog:
+        sections.append({"key": "mine", "titre": "Mine (tonnes)", "prog": mine_prog})
+    return render(request, "portal/suivi_plan.html", {
+        "entreprise": ent,
+        "forage": forage_prog,
+        "mine": mine_prog,
+        "sections": sections,
+        "forage_chart_json": json.dumps(forage_prog["chart"]) if forage_prog else "null",
+        "mine_chart_json": json.dumps(mine_prog["chart"]) if mine_prog else "null",
+        "erreurs": erreurs,
     })

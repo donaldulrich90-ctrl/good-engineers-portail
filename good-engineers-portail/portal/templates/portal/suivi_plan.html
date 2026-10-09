@@ -1,0 +1,77 @@
+{% extends "portal/base.html" %}
+{% block titre %}Suivi du plan — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<style>
+  .sp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+    border-bottom:3px solid var(--acc);padding-bottom:14px;margin-bottom:20px}
+  .sp-head h1{margin:0;font-size:24px}
+  .sp-sec{margin:26px 0}
+  .sp-sec h2{font-size:18px;margin:0 0 12px;padding-left:10px;border-left:4px solid var(--acc)}
+  .sp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .sp-kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;border-left:4px solid var(--acc)}
+  .sp-kpi .lab{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+  .sp-kpi .val{font-size:23px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  .sp-ok{color:var(--ok)} .sp-bad{color:#d9534f}
+  .sp-alert{background:rgba(217,83,79,.12);border:1px solid rgba(217,83,79,.4);border-radius:10px;padding:12px 14px;margin-bottom:14px;color:#f0a6a3;font-size:14px}
+  .sp-chart{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  table.sp{width:100%;border-collapse:collapse;font-size:13px}
+  table.sp td.num,table.sp th.num{text-align:right;font-variant-numeric:tabular-nums}
+  @media(max-width:760px){.sp-kpis{grid-template-columns:1fr 1fr}}
+</style>
+
+<div class="sp-head">
+  <div><h1>Suivi du plan consolidé</h1><div class="mut">{{ entreprise.nom }} · planifié vs réel</div></div>
+  <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-size:18px">GOOD ENGINEERS</div><small class="mut">Pilotage multi-sites</small></div>
+</div>
+
+{% for e in erreurs %}<p style="color:#e0794a;font-size:13px">⚠ {{ e }}</p>{% endfor %}
+
+{% if not forage and not mine %}
+<div class="card"><p class="mut">Aucun plan à suivre pour l'instant. Définis un plan dans <b>Forage</b> (onglet « Planification &amp; suivi ») et/ou dans <b>Mine</b>, puis reviens ici : le suivi consolidé s'affichera automatiquement.</p></div>
+{% endif %}
+
+{% for p in sections %}
+<div class="sp-sec">
+  <h2>{{ p.titre }} — {{ p.prog.label }} <span class="mut" style="font-size:13px">({{ p.prog.unit }})</span></h2>
+  {% if p.prog.late %}<div class="sp-alert"><b>⚠ Retard :</b> cumul réel inférieur de {{ p.prog.ecart|floatformat:0 }} {{ p.prog.unit }} ({{ p.prog.ecart_pct|floatformat:0 }} %) au plan à cette date.</div>{% endif %}
+  <div class="sp-kpis">
+    <div class="sp-kpi"><div class="lab">Réalisé</div><div class="val" style="color:var(--acc)">{{ p.prog.cum_act|floatformat:0 }} / {{ p.prog.total_target|floatformat:0 }}</div><div class="mut" style="font-size:11px">{{ p.prog.pct|floatformat:0 }} % de l'objectif</div></div>
+    <div class="sp-kpi"><div class="lab">Écart à date</div><div class="val {% if p.prog.ecart >= 0 %}sp-ok{% else %}sp-bad{% endif %}">{% if p.prog.ecart >= 0 %}+{% endif %}{{ p.prog.ecart|floatformat:0 }} {{ p.prog.unit }}</div><div class="mut" style="font-size:11px">{% if p.prog.ecart >= 0 %}En avance{% else %}En retard{% endif %} ({{ p.prog.ecart_pct|floatformat:0 }} %)</div></div>
+    <div class="sp-kpi"><div class="lab">Fin projetée</div><div class="val">{{ p.prog.proj_end }}</div><div class="mut" style="font-size:11px">Objectif {{ p.prog.end_date }}</div></div>
+    <div class="sp-kpi"><div class="lab">Rythme réel</div><div class="val">{{ p.prog.rate|floatformat:1 }}</div><div class="mut" style="font-size:11px">{{ p.prog.unit }}/jour</div></div>
+  </div>
+  <div class="sp-chart"><h3 style="margin:0 0 10px;font-size:14px">Courbe cumulée — planifié vs réel</h3><div style="position:relative;height:260px"><canvas id="spChart-{{ p.key }}"></canvas></div></div>
+  <div class="card" style="padding:0">
+    <table class="sp"><thead><tr><th>Mois</th><th class="num">Objectif</th><th class="num">Réel</th><th class="num">Écart</th><th class="num">Cumul plan</th><th class="num">Cumul réel</th></tr></thead><tbody>
+      {% for r in p.prog.rows %}
+      <tr><td>{{ r.label }}</td><td class="num">{{ r.target|floatformat:0 }}</td><td class="num">{{ r.actual|floatformat:0 }}</td><td class="num {% if r.ecart >= 0 %}sp-ok{% else %}sp-bad{% endif %}">{% if r.ecart >= 0 %}+{% endif %}{{ r.ecart|floatformat:0 }}</td><td class="num">{{ r.cum_plan|floatformat:0 }}</td><td class="num">{{ r.cum_act|floatformat:0 }}</td></tr>
+      {% endfor %}
+    </tbody></table>
+  </div>
+</div>
+{% endfor %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script id="spForageChart" type="application/json">{{ forage_chart_json|safe }}</script>
+<script id="spMineChart" type="application/json">{{ mine_chart_json|safe }}</script>
+<script>
+(function(){
+  function draw(key, data){
+    if(!data) return;
+    var ctx=document.getElementById('spChart-'+key); if(!ctx||!window.Chart) return;
+    new Chart(ctx,{type:'line',
+      data:{labels:data.labels,datasets:[
+        {label:'Planifié (cumul)',data:data.plan,borderColor:'#9aa3b2',backgroundColor:'rgba(154,163,178,.12)',borderDash:[6,4],fill:true,tension:.15,pointRadius:2},
+        {label:'Réel (cumul)',data:data.act,borderColor:'#d8812f',backgroundColor:'rgba(216,129,47,.15)',fill:true,tension:.15,pointRadius:2,spanGaps:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,
+        plugins:{legend:{labels:{color:'#c3cad6',font:{size:12}}}},
+        scales:{x:{ticks:{color:'#9aa3b2',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#9aa3b2',font:{size:10}},grid:{color:'rgba(255,255,255,.06)'},beginAtZero:true}}}
+    });
+  }
+  function parse(id){ try{ return JSON.parse(document.getElementById(id).textContent||'null'); }catch(e){ return null; } }
+  draw('forage', parse('spForageChart'));
+  draw('mine', parse('spMineChart'));
+})();
+</script>
+{% endblock %}
