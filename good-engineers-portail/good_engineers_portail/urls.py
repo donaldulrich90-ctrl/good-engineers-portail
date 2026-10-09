@@ -16,6 +16,7 @@ urlpatterns = [
     # Rapport consolidé.
     path("rapport/", views.rapport_view, name="rapport"),
     path("suivi-plan/", views.suivi_plan_view, name="suivi_plan"),
+    path("besoins/", views.besoins_view, name="besoins"),
     path("rapport/export.xlsx", views.rapport_export_xlsx, name="rapport_export_xlsx"),
 
     # Personnel + Pointage (côté entreprise, partagé tous packs).

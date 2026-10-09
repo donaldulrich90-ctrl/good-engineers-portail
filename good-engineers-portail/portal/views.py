@@ -27,8 +27,10 @@ from .services import (
     creer_entreprise_mine,
     creer_user_forage,
     creer_user_mine,
+    fetch_forage_besoins,
     fetch_forage_metrics,
     fetch_forage_plan,
+    fetch_mine_besoins,
     fetch_mine_metrics,
     fetch_mine_plan,
 )
@@ -682,6 +684,44 @@ def _plan_progress(plan, actuals):
             "act": [r["cum_act"] if (r["ended"] or r["ongoing"]) else None for r in rows],
         },
     }
+
+
+@login_required
+def besoins_view(request):
+    """Vue consolidée des expressions de besoin (Forage + Mine)."""
+    profil = _profil(request)
+    if profil is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    ent = profil.entreprise
+    items = []
+    erreurs = []
+    _STAT = {"nouveau": "Nouveau", "assigne": "Alloué", "traite": "Exécuté",
+             "verifie": "Vérifié", "valide": "Validé", "rejete": "Rejeté"}
+    if ent.module_forage and ent.forage_enterprise_id is not None:
+        res, err = fetch_forage_besoins(ent.forage_enterprise_id)
+        if err:
+            erreurs.append(f"Forage : {err}")
+        elif res:
+            for b in res.get("besoins", []):
+                b["_src"] = "Forage"
+                items.append(b)
+    if ent.module_mine and ent.mine_tenant_id:
+        res, err = fetch_mine_besoins(ent.mine_tenant_id)
+        if err:
+            erreurs.append(f"Mine : {err}")
+        elif res:
+            for b in res.get("besoins", []):
+                b["_src"] = "Mine"
+                items.append(b)
+    for b in items:
+        b["_statut_label"] = _STAT.get(b.get("statut"), b.get("statut"))
+        b["_open"] = b.get("statut") not in ("valide", "rejete")
+        b["_att"] = len(b.get("attachments") or [])
+    items.sort(key=lambda b: str(b.get("createdAt") or ""), reverse=True)
+    return render(request, "portal/besoins.html", {
+        "entreprise": ent, "items": items,
+        "nb_open": sum(1 for b in items if b["_open"]), "erreurs": erreurs,
+    })
 
 
 @login_required
