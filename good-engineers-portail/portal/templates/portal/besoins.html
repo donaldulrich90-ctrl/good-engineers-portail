@@ -1,0 +1,53 @@
+{% extends "portal/base.html" %}
+{% block titre %}Expressions de besoin — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<style>
+  .eb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+          border-bottom:3px solid var(--acc);padding-bottom:14px;margin-bottom:20px}
+  .eb-head h1{margin:0;font-size:24px}
+  .eb-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .eb-chip{border-radius:999px;font-size:11px;font-weight:700;padding:2px 10px}
+  .eb-src{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;background:rgba(216,129,47,.15);color:#e0a05a}
+  .mut{color:var(--mut)}
+  .eb-note{background:rgba(216,129,47,.08);border:1px solid rgba(216,129,47,.3);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px}
+  .err{color:#e0794a;font-size:13px}
+</style>
+
+<div class="eb-head">
+  <div>
+    <h1>Expressions de besoin</h1>
+    <div class="mut" style="font-size:13px;margin-top:4px">{{ entreprise.nom }} · vue consolidée Forage + Mine</div>
+  </div>
+  <div style="text-align:right"><div style="font-weight:800;color:var(--acc);font-size:18px">GOOD ENGINEERS</div><small class="mut">Demandes inter-sites</small></div>
+</div>
+
+{% for e in erreurs %}<p class="err">⚠ {{ e }}</p>{% endfor %}
+
+{% if nb_open %}<div class="eb-note"><b>{{ nb_open }}</b> demande(s) ouverte(s) en cours de traitement.</div>{% endif %}
+
+{% if not items %}
+  <div class="eb-item"><p class="mut">Aucune expression de besoin pour le moment. Les demandes créées dans Forage ou Mine apparaîtront ici.</p></div>
+{% endif %}
+
+{% for b in items %}
+  <div class="eb-item" style="border-left:4px solid
+    {% if b.statut == 'valide' %}#2e9e6b{% elif b.statut == 'rejete' %}#d9534f{% elif b.statut == 'verifie' %}#36b3d6{% elif b.statut == 'traite' %}#d8812f{% elif b.statut == 'assigne' %}#4a9eea{% else %}#9aa3b2{% endif %}">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:4px">
+      <span class="eb-src">{{ b._src }}</span>
+      <span style="font-weight:800">{{ b.numero }}</span>
+      <span class="eb-chip" style="
+        {% if b.statut == 'valide' %}background:rgba(46,158,107,.15);color:#54c892{% elif b.statut == 'rejete' %}background:rgba(217,83,79,.15);color:#f0a6a3{% elif b.statut == 'verifie' %}background:rgba(54,179,214,.15);color:#7fd4ec{% elif b.statut == 'traite' %}background:rgba(216,129,47,.18);color:#e8b57a{% elif b.statut == 'assigne' %}background:rgba(74,158,234,.15);color:#9cc8f5{% else %}background:rgba(154,163,178,.18);color:var(--mut){% endif %}">{{ b._statut_label }}</span>
+      <span style="font-weight:800;font-size:11px;text-transform:uppercase;color:{% if b.priorite == 'critique' %}#f0a6a3{% elif b.priorite == 'urgent' %}#e8b57a{% else %}var(--mut){% endif %}">{{ b.priorite }}</span>
+      {% if b._att %}<span class="mut" style="font-size:12px">📎 {{ b._att }}</span>{% endif %}
+      <span class="mut" style="font-size:12px;margin-left:auto">{{ b.createdAt|slice:":16" }} · {{ b.createdBy }}</span>
+    </div>
+    <div style="font-weight:700;font-size:15px">{{ b.designation }}</div>
+    <div class="mut" style="font-size:12px;margin-top:2px">{{ b.type }} · {{ b.quantite }} {{ b.unite }}{% if b.site %} · {{ b.site }}{% endif %}</div>
+    {% if b.assignee or b.verificateur or b.validateur %}
+    <div class="mut" style="font-size:12px;margin-top:6px">
+      {% if b.assignee %}Alloué à <b>{{ b.assignee }}</b>{% endif %}{% if b.verificateur %} · Vérifié par <b>{{ b.verificateur }}</b>{% endif %}{% if b.validateur %} · Validé par <b>{{ b.validateur }}</b>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+{% endfor %}
+{% endblock %}
