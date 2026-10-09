@@ -33,12 +33,12 @@
   <div class="eb-item" style="border-left:4px solid
     {% if b.statut == 'valide' %}#2e9e6b{% elif b.statut == 'rejete' %}#d9534f{% elif b.statut == 'verifie' %}#36b3d6{% elif b.statut == 'traite' %}#d8812f{% elif b.statut == 'assigne' %}#4a9eea{% else %}#9aa3b2{% endif %}">
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:4px">
-      <span class="eb-src">{{ b._src }}</span>
+      <span class="eb-src">{{ b.src }}</span>
       <span style="font-weight:800">{{ b.numero }}</span>
       <span class="eb-chip" style="
-        {% if b.statut == 'valide' %}background:rgba(46,158,107,.15);color:#54c892{% elif b.statut == 'rejete' %}background:rgba(217,83,79,.15);color:#f0a6a3{% elif b.statut == 'verifie' %}background:rgba(54,179,214,.15);color:#7fd4ec{% elif b.statut == 'traite' %}background:rgba(216,129,47,.18);color:#e8b57a{% elif b.statut == 'assigne' %}background:rgba(74,158,234,.15);color:#9cc8f5{% else %}background:rgba(154,163,178,.18);color:var(--mut){% endif %}">{{ b._statut_label }}</span>
+        {% if b.statut == 'valide' %}background:rgba(46,158,107,.15);color:#54c892{% elif b.statut == 'rejete' %}background:rgba(217,83,79,.15);color:#f0a6a3{% elif b.statut == 'verifie' %}background:rgba(54,179,214,.15);color:#7fd4ec{% elif b.statut == 'traite' %}background:rgba(216,129,47,.18);color:#e8b57a{% elif b.statut == 'assigne' %}background:rgba(74,158,234,.15);color:#9cc8f5{% else %}background:rgba(154,163,178,.18);color:var(--mut){% endif %}">{{ b.statut_label }}</span>
       <span style="font-weight:800;font-size:11px;text-transform:uppercase;color:{% if b.priorite == 'critique' %}#f0a6a3{% elif b.priorite == 'urgent' %}#e8b57a{% else %}var(--mut){% endif %}">{{ b.priorite }}</span>
-      {% if b._att %}<span class="mut" style="font-size:12px">📎 {{ b._att }}</span>{% endif %}
+      {% if b.nb_att %}<span class="mut" style="font-size:12px">📎 {{ b.nb_att }}</span>{% endif %}
       <span class="mut" style="font-size:12px;margin-left:auto">{{ b.createdAt|slice:":16" }} · {{ b.createdBy }}</span>
     </div>
     <div style="font-weight:700;font-size:15px">{{ b.designation }}</div>
