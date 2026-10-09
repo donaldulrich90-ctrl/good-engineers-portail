@@ -703,7 +703,7 @@ def besoins_view(request):
             erreurs.append(f"Forage : {err}")
         elif res:
             for b in res.get("besoins", []):
-                b["_src"] = "Forage"
+                b["src"] = "Forage"
                 items.append(b)
     if ent.module_mine and ent.mine_tenant_id:
         res, err = fetch_mine_besoins(ent.mine_tenant_id)
@@ -711,16 +711,16 @@ def besoins_view(request):
             erreurs.append(f"Mine : {err}")
         elif res:
             for b in res.get("besoins", []):
-                b["_src"] = "Mine"
+                b["src"] = "Mine"
                 items.append(b)
     for b in items:
-        b["_statut_label"] = _STAT.get(b.get("statut"), b.get("statut"))
-        b["_open"] = b.get("statut") not in ("valide", "rejete")
-        b["_att"] = len(b.get("attachments") or [])
+        b["statut_label"] = _STAT.get(b.get("statut"), b.get("statut"))
+        b["is_open"] = b.get("statut") not in ("valide", "rejete")
+        b["nb_att"] = len(b.get("attachments") or [])
     items.sort(key=lambda b: str(b.get("createdAt") or ""), reverse=True)
     return render(request, "portal/besoins.html", {
         "entreprise": ent, "items": items,
-        "nb_open": sum(1 for b in items if b["_open"]), "erreurs": erreurs,
+        "nb_open": sum(1 for b in items if b["is_open"]), "erreurs": erreurs,
     })
 
 
