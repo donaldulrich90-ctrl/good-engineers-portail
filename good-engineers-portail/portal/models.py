@@ -34,6 +34,9 @@ class Entreprise(models.Model):
         help_text="L'identifiant de tenant dans GOOD ENGINEERS OS (ex: 'default' ou un slug).",
     )
 
+    # Logo de l'entreprise abonnée (data URI base64), affiché sur la page d'accueil.
+    logo = models.TextField("logo (data URI)", blank=True, default="")
+
     cree_le = models.DateTimeField(auto_now_add=True)
     maj_le = models.DateTimeField(auto_now=True)
 

@@ -363,6 +363,26 @@ def gestion_client_edit(request, client_id=None):
                 "forage_enterprise_id": forage_val if module_forage else None,
                 "mine_tenant_id": mine_val if module_mine else "",
             }
+
+            # Logo de l'entreprise : fichier image -> data URI (base64) stocké en BD.
+            if request.POST.get("logo_supprimer"):
+                champs["logo"] = ""
+            else:
+                f = request.FILES.get("logo")
+                if f:
+                    ctype = (getattr(f, "content_type", "") or "").lower()
+                    allowed = {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"}
+                    if ctype not in allowed:
+                        erreur = "Logo : format non supporté (PNG, JPG, GIF ou WEBP)."
+                    elif (getattr(f, "size", 0) or 0) > 2 * 1024 * 1024:
+                        erreur = "Logo : fichier trop volumineux (maximum 2 Mo)."
+                    else:
+                        import base64
+                        data = base64.b64encode(f.read()).decode("ascii")
+                        champs["logo"] = "data:%s;base64,%s" % (ctype, data)
+
+            if erreur:
+                return render(request, "portal/gestion/client_edit.html", {"ent": ent, "erreur": erreur})
             try:
                 if ent:
                     for k, v in champs.items():
