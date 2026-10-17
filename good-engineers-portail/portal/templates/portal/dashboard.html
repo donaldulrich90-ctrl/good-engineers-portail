@@ -3,12 +3,17 @@
 {% block contenu %}
 <div class="card" style="border-color:var(--acc)">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div>
+    <div style="display:flex;align-items:center;gap:14px">
+      {% if entreprise.logo %}
+      <img src="{{ entreprise.logo }}" alt="{{ entreprise.nom }}" style="height:54px;max-width:150px;object-fit:contain;background:#fff;border-radius:8px;padding:5px">
+      {% endif %}
+      <div>
       <h2 style="margin:0">{{ entreprise.nom }}</h2>
       <p class="mut" style="font-size:14px;margin:4px 0 0">
         {% if est_suite %}Votre espace intégré — Forage + Mine
         {% else %}Votre espace {{ offre_label }}{% endif %}
       </p>
+      </div>
     </div>
     <span class="pill ok">{{ offre_label }}</span>
   </div>
