@@ -37,6 +37,12 @@ class Entreprise(models.Model):
     # Logo de l'entreprise abonnée (data URI base64), affiché sur la page d'accueil.
     logo = models.TextField("logo (data URI)", blank=True, default="")
 
+    # --- Personnel : numérotation des matricules + listes équipe/rotation ---
+    matricule_prefix = models.CharField("préfixe matricule", max_length=20, blank=True, default="")
+    matricule_seq = models.IntegerField("compteur matricule", default=0)
+    equipes = models.TextField("équipes (une par ligne)", blank=True, default="")
+    rotations = models.TextField("rotations (une par ligne)", blank=True, default="")
+
     cree_le = models.DateTimeField(auto_now_add=True)
     maj_le = models.DateTimeField(auto_now=True)
 
@@ -154,6 +160,8 @@ class Employe(models.Model):
     nom = models.CharField("nom complet", max_length=160)
     matricule = models.CharField(max_length=40, blank=True, default="")
     poste = models.CharField("intitulé de poste", max_length=120, blank=True, default="")
+    equipe = models.CharField("équipe", max_length=60, blank=True, default="")
+    rotation = models.CharField("rotation", max_length=60, blank=True, default="")
     sous_traitant = models.BooleanField("sous-traitant", default=False)
     actif = models.BooleanField(default=True)
     cree_le = models.DateTimeField(auto_now_add=True)

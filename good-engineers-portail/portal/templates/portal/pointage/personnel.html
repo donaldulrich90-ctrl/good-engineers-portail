@@ -3,24 +3,52 @@
 {% block contenu %}
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
   <h2 style="margin:0">Personnel — {{ entreprise.nom }}</h2>
-  <span class="mut" style="font-size:13px">Saisi une seule fois, pour tous vos modules</span>
+  <span class="mut" style="font-size:13px">Saisi une seule fois, pour tous vos modules · par équipe et rotation</span>
 </div>
 {% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
 {% if ok %}<p style="color:var(--ok)">{{ ok }}</p>{% endif %}
 
+{% if peut_gerer %}
+<div class="card">
+  <strong>⚙️ Paramètres du personnel</strong>
+  <p class="mut" style="font-size:13px;margin:4px 0 10px">Numérotation des matricules (préfixe → {{ entreprise.matricule_prefix|default:"—" }}-0001…) et listes d'équipes / rotations. Une valeur par ligne.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="config">
+    <div class="grid">
+      <div>
+        <label for="mpfx">Préfixe de matricule</label>
+        <input id="mpfx" name="matricule_prefix" value="{{ entreprise.matricule_prefix }}" placeholder="ex: WAU">
+        {% if next_matricule %}<p class="mut" style="font-size:12px">Prochain matricule auto : <strong>{{ next_matricule }}</strong></p>{% endif %}
+      </div>
+      <div>
+        <label for="eqs">Équipes (une par ligne)</label>
+        <textarea id="eqs" name="equipes" rows="4" placeholder="Équipe A&#10;Équipe B">{{ entreprise.equipes }}</textarea>
+      </div>
+      <div>
+        <label for="rots">Rotations (une par ligne)</label>
+        <textarea id="rots" name="rotations" rows="4" placeholder="14x7&#10;28x28&#10;Jour / Nuit">{{ entreprise.rotations }}</textarea>
+      </div>
+    </div>
+    <button class="btn" type="submit" style="margin-top:10px">Enregistrer les paramètres</button>
+  </form>
+</div>
+{% endif %}
+
 <div class="card" style="padding:0;margin-top:14px">
   <table>
-    <thead><tr><th>Nom</th><th>Matricule</th><th>Poste</th><th>Sous-traitant</th><th>État</th><th></th></tr></thead>
+    <thead><tr><th>Nom</th><th>Matricule</th><th>Poste</th><th>Équipe</th><th>Rotation</th><th>Sous-traitant</th><th>État</th><th></th></tr></thead>
     <tbody>
       {% for e in employes %}
       <tr>
         <td><strong>{{ e.nom }}</strong></td>
         <td>{{ e.matricule|default:"—" }}</td>
         <td>{{ e.poste|default:"—" }}</td>
+        <td>{% if e.equipe %}<span class="pill">{{ e.equipe }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+        <td>{% if e.rotation %}<span class="pill">{{ e.rotation }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
         <td>{% if e.sous_traitant %}<span class="pill ok">oui</span>{% else %}<span class="mut">non</span>{% endif %}</td>
         <td>{% if e.actif %}<span class="pill ok">actif</span>{% else %}<span class="pill off">inactif</span>{% endif %}</td>
-        <td style="text-align:right">
+        <td style="text-align:right;white-space:nowrap">
           {% if peut_gerer %}
+          <button type="button" class="btn" onclick="persEdit('{{ e.id }}','{{ e.nom|escapejs }}','{{ e.matricule|escapejs }}','{{ e.poste|escapejs }}','{{ e.equipe|escapejs }}','{{ e.rotation|escapejs }}','{{ e.sous_traitant|yesno:"1," }}')">Éditer</button>
           <form method="post" style="display:inline">{% csrf_token %}
             <input type="hidden" name="employe_id" value="{{ e.id }}">
             {% if e.actif %}
@@ -34,37 +62,72 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="mut" style="padding:18px">Aucun employé. Ajoute le premier ci-dessous.</td></tr>
+      <tr><td colspan="8" class="mut" style="padding:18px">Aucun employé. Ajoute le premier ci-dessous.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 {% if peut_gerer %}
-<div class="card">
-  <strong>Ajouter un employé</strong>
-  <form method="post" style="margin-top:8px">
+<div class="card" id="persFormCard">
+  <strong id="persFormTitle">Ajouter un employé</strong>
+  <form method="post" style="margin-top:8px" id="persForm">
     {% csrf_token %}
+    <input type="hidden" name="action" value="save" id="persAction">
+    <input type="hidden" name="employe_id" value="" id="persEmpId">
     <div class="grid">
       <div>
         <label for="nom">Nom complet</label>
         <input id="nom" name="nom" required>
         <label for="matricule">Matricule</label>
-        <input id="matricule" name="matricule" placeholder="facultatif">
+        <input id="matricule" name="matricule" placeholder="{% if next_matricule %}auto : {{ next_matricule }}{% else %}facultatif{% endif %}">
       </div>
       <div>
         <label for="poste">Intitulé de poste</label>
         <input id="poste" name="poste" list="postes" placeholder="ex: Opérateur de foreuse">
-        <datalist id="postes">
-          {% for p in postes_suggeres %}<option value="{{ p }}">{% endfor %}
-        </datalist>
+        <datalist id="postes">{% for p in postes_suggeres %}<option value="{{ p }}">{% endfor %}</datalist>
         <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
-          <input type="checkbox" name="sous_traitant" style="width:auto"> Sous-traitant
+          <input type="checkbox" name="sous_traitant" id="sousTraitant" style="width:auto"> Sous-traitant
         </label>
       </div>
+      <div>
+        <label for="equipe">Équipe</label>
+        <input id="equipe" name="equipe" list="equipes_dl" placeholder="choisir ou saisir">
+        <datalist id="equipes_dl">{% for q in equipes_list %}<option value="{{ q }}">{% endfor %}</datalist>
+        <label for="rotation">Rotation</label>
+        <input id="rotation" name="rotation" list="rotations_dl" placeholder="choisir ou saisir">
+        <datalist id="rotations_dl">{% for r in rotations_list %}<option value="{{ r }}">{% endfor %}</datalist>
+      </div>
     </div>
-    <button class="btn primaire" type="submit" style="margin-top:14px">Ajouter</button>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn primaire" type="submit" id="persSubmit">Ajouter</button>
+      <button class="btn" type="button" onclick="persReset()" id="persCancel" style="display:none">Annuler</button>
+    </div>
   </form>
 </div>
+<script>
+  function persEdit(id,nom,mat,poste,eq,rot,st){
+    document.getElementById('persAction').value='editer';
+    document.getElementById('persEmpId').value=id;
+    document.getElementById('nom').value=nom;
+    document.getElementById('matricule').value=mat;
+    document.getElementById('poste').value=poste;
+    document.getElementById('equipe').value=eq;
+    document.getElementById('rotation').value=rot;
+    document.getElementById('sousTraitant').checked = (st==='1');
+    document.getElementById('persFormTitle').textContent='Modifier l\'employé';
+    document.getElementById('persSubmit').textContent='Enregistrer';
+    document.getElementById('persCancel').style.display='';
+    document.getElementById('persFormCard').scrollIntoView({behavior:'smooth'});
+  }
+  function persReset(){
+    document.getElementById('persForm').reset();
+    document.getElementById('persAction').value='save';
+    document.getElementById('persEmpId').value='';
+    document.getElementById('persFormTitle').textContent='Ajouter un employé';
+    document.getElementById('persSubmit').textContent='Ajouter';
+    document.getElementById('persCancel').style.display='none';
+  }
+</script>
 {% endif %}
 {% endblock %}
