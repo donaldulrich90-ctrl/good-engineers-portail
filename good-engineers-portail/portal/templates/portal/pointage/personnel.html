@@ -35,7 +35,7 @@
 
 <div class="card" style="padding:0;margin-top:14px">
   <table>
-    <thead><tr><th>Nom</th><th>Matricule</th><th>Poste</th><th>Équipe</th><th>Rotation</th><th>Sous-traitant</th><th>État</th><th></th></tr></thead>
+    <thead><tr><th>Nom</th><th>Matricule</th><th>Poste</th><th>Équipe</th><th>Rotation</th><th>Empreinte</th><th>Sous-traitant</th><th>État</th><th></th></tr></thead>
     <tbody>
       {% for e in employes %}
       <tr>
@@ -44,6 +44,10 @@
         <td>{{ e.poste|default:"—" }}</td>
         <td>{% if e.equipe %}<span class="pill">{{ e.equipe }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
         <td>{% if e.rotation %}<span class="pill">{{ e.rotation }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+        <td>
+          {% if e.empreinte_enrolee %}<span class="pill ok">✔ enrôlée</span>{% else %}<span class="mut">—</span>{% endif %}
+          {% if peut_gerer and e.empreinte_enrolee %}<form method="post" style="display:inline" onsubmit="return confirm('Supprimer l\'empreinte de cet employé ?')">{% csrf_token %}<input type="hidden" name="action" value="empreinte_reset"><input type="hidden" name="employe_id" value="{{ e.id }}"><button class="btn" type="submit" style="padding:2px 8px;font-size:12px">✕</button></form>{% endif %}
+        </td>
         <td>{% if e.sous_traitant %}<span class="pill ok">oui</span>{% else %}<span class="mut">non</span>{% endif %}</td>
         <td>{% if e.actif %}<span class="pill ok">actif</span>{% else %}<span class="pill off">inactif</span>{% endif %}</td>
         <td style="text-align:right;white-space:nowrap">
@@ -62,7 +66,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="8" class="mut" style="padding:18px">Aucun employé. Ajoute le premier ci-dessous.</td></tr>
+      <tr><td colspan="9" class="mut" style="padding:18px">Aucun employé. Ajoute le premier ci-dessous.</td></tr>
       {% endfor %}
     </tbody>
   </table>

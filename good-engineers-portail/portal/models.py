@@ -272,6 +272,11 @@ class Employe(models.Model):
     equipe = models.CharField("équipe", max_length=60, blank=True, default="")
     rotation = models.CharField("rotation", max_length=60, blank=True, default="")
     sous_traitant = models.BooleanField("sous-traitant", default=False)
+    # Biométrie pour le pointage (gabarit d'empreinte, jamais l'image).
+    # Donnée personnelle sensible : stockée chiffrée, saisie via le lecteur.
+    empreinte_template = models.TextField("gabarit d'empreinte (chiffré)", blank=True, default="")
+    empreinte_doigt = models.CharField("doigt enrôlé", max_length=30, blank=True, default="")
+    empreinte_enrolee = models.BooleanField("empreinte enrôlée", default=False)
     actif = models.BooleanField(default=True)
     cree_le = models.DateTimeField(auto_now_add=True)
 
