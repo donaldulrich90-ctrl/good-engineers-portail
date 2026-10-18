@@ -515,6 +515,19 @@ def personnel(request):
             elif action == "activer":
                 Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).update(actif=True)
                 ok = "Employé réactivé."
+            elif action == "empreinte_save":
+                emp = Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).first()
+                if emp:
+                    tpl = (request.POST.get("empreinte_template") or "").strip()
+                    emp.empreinte_template = tpl
+                    emp.empreinte_doigt = (request.POST.get("empreinte_doigt") or "").strip()[:30]
+                    emp.empreinte_enrolee = bool(tpl)
+                    emp.save(update_fields=["empreinte_template", "empreinte_doigt", "empreinte_enrolee"])
+                    ok = "Empreinte enregistrée." if tpl else "Empreinte effacée."
+            elif action == "empreinte_reset":
+                Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).update(
+                    empreinte_template="", empreinte_doigt="", empreinte_enrolee=False)
+                ok = "Empreinte supprimée."
             elif action == "config":
                 ent.matricule_prefix = (request.POST.get("matricule_prefix") or "").strip()[:20]
                 ent.equipes = (request.POST.get("equipes") or "").strip()
