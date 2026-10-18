@@ -102,3 +102,41 @@ Propriétaire GitHub : **donaldulrich90-ctrl**. Branche par défaut : **main**.
 - FCFA (XOF) partout pour les montants.
 - Attribution des commits (convention de ces sessions) :
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+
+## 8. Automatiser le déploiement (pour Claude Code / CLI)
+
+Claude Code peut **committer, pousser, ouvrir une PR et la fusionner** sans souci.
+Pour le **déploiement**, Coolify n'a pas de « bouton » en CLI, mais 3 options :
+
+### Option A — Auto-déploiement au push (recommandé)
+Chaque push sur `main` redéploie automatiquement. À configurer **une fois par app** :
+1. Dans Coolify : app → **Webhooks** → section **Manual Git Webhooks → GitHub**.
+   - **Payload URL** (identique pour toutes les apps) : `http://37.60.243.107:8000/webhooks/source/github/events/manual`
+   - **Secret** : le « GitHub Webhook Secret » affiché pour CETTE app (cliquer sur l'œil pour le révéler). Il est **propre à chaque app**.
+2. Sur GitHub : dépôt → **Settings → Webhooks → Add webhook** :
+   - Payload URL = l'URL ci-dessus
+   - Content type = `application/json`
+   - Secret = le secret de l'app
+   - Events = **Just the push event**
+3. Désormais `git push origin main` redéploie l'app. (GitHub doit pouvoir joindre `37.60.243.107:8000` — c'est public, donc OK.)
+
+> Astuce : le bouton **« Webhook Configuration on GitHub »** dans Coolify ouvre la page GitHub pré-remplie.
+
+### Option B — API de déploiement Coolify (déclenchement explicite)
+Créer un **token API Coolify** (Coolify → Keys & Tokens / Security → API Tokens), puis :
+```
+curl "http://37.60.243.107:8000/api/v1/deploy?uuid=<APP_UUID>&force=false" \
+     -H "Authorization: Bearer <COOLIFY_API_TOKEN>"
+```
+UUID des apps :
+- Forage (gedrilling) : `c1bc2nr5yjnrzkv7f0o6iydk`
+- Mine (gemining) : `b5pfvomd4fen3xg20w6k1md8`
+- Portail (geportail) : `fqo7r7pdaoubpdague25hznq`
+
+### Option C — Webhook de déploiement (auth requise)
+L'app expose aussi une URL « Deploy Webhook (auth required) » (`/api/v1/deploy?uuid=...`),
+à appeler avec le même token Bearer que l'option B.
+
+### Conditions
+- La machine qui exécute Claude Code (ou GitHub pour l'option A) doit pouvoir **joindre `37.60.243.107:8000`**. Sur ton PC/VPS : OK. Dans un bac à sable cloud restreint : peut être bloqué.
+- **Ne jamais committer** les secrets (webhook secret, token API) dans le dépôt. Les garder en variable d'environnement / gestionnaire de secrets.
