@@ -515,23 +515,56 @@ def personnel(request):
             elif action == "activer":
                 Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).update(actif=True)
                 ok = "Employé réactivé."
+            elif action == "config":
+                ent.matricule_prefix = (request.POST.get("matricule_prefix") or "").strip()[:20]
+                ent.equipes = (request.POST.get("equipes") or "").strip()
+                ent.rotations = (request.POST.get("rotations") or "").strip()
+                ent.save(update_fields=["matricule_prefix", "equipes", "rotations"])
+                ok = "Paramètres du personnel enregistrés."
+            elif action == "editer":
+                emp = Employe.objects.filter(entreprise=ent, pk=request.POST.get("employe_id")).first()
+                if emp:
+                    nom = (request.POST.get("nom") or "").strip()
+                    if nom:
+                        emp.nom = nom
+                    emp.matricule = (request.POST.get("matricule") or "").strip()
+                    emp.poste = (request.POST.get("poste") or "").strip()
+                    emp.equipe = (request.POST.get("equipe") or "").strip()[:60]
+                    emp.rotation = (request.POST.get("rotation") or "").strip()[:60]
+                    emp.sous_traitant = bool(request.POST.get("sous_traitant"))
+                    emp.save()
+                    ok = "Employé mis à jour."
             else:
                 nom = (request.POST.get("nom") or "").strip()
                 if not nom:
                     erreur = "Le nom est obligatoire."
                 else:
+                    matricule = (request.POST.get("matricule") or "").strip()
+                    # Matricule auto : préfixe + compteur zéro-paddé, si laissé vide.
+                    if not matricule and ent.matricule_prefix:
+                        ent.matricule_seq = (ent.matricule_seq or 0) + 1
+                        ent.save(update_fields=["matricule_seq"])
+                        matricule = "%s-%04d" % (ent.matricule_prefix, ent.matricule_seq)
                     Employe.objects.create(
-                        entreprise=ent, nom=nom,
-                        matricule=(request.POST.get("matricule") or "").strip(),
+                        entreprise=ent, nom=nom, matricule=matricule,
                         poste=(request.POST.get("poste") or "").strip(),
+                        equipe=(request.POST.get("equipe") or "").strip()[:60],
+                        rotation=(request.POST.get("rotation") or "").strip()[:60],
                         sous_traitant=bool(request.POST.get("sous_traitant")),
                     )
                     ok = f"Employé « {nom} » ajouté."
 
-    employes = ent.employes.all()
+    equipes_list = [l.strip() for l in (ent.equipes or "").splitlines() if l.strip()]
+    rotations_list = [l.strip() for l in (ent.rotations or "").splitlines() if l.strip()]
+    next_matricule = ""
+    if ent.matricule_prefix:
+        next_matricule = "%s-%04d" % (ent.matricule_prefix, (ent.matricule_seq or 0) + 1)
+    employes = ent.employes.all().order_by("equipe", "rotation", "nom")
     return render(request, "portal/pointage/personnel.html", {
         "entreprise": ent, "employes": employes, "erreur": erreur, "ok": ok,
         "peut_gerer": peut_gerer, "postes_suggeres": Employe.POSTES_SUGGERES,
+        "equipes_list": equipes_list, "rotations_list": rotations_list,
+        "next_matricule": next_matricule,
     })
 
 
