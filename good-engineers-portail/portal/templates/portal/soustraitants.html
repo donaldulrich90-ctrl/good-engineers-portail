@@ -1,0 +1,52 @@
+{% extends "portal/base.html" %}
+{% block titre %}Sous-traitants — {{ entreprise.nom }}{% endblock %}
+{% block contenu %}
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <div>
+    <h2 style="margin:0">Sous-traitants — paiement du mois</h2>
+    <p class="mut" style="font-size:13px;margin:4px 0 0">Vue consolidée (Forage + Mine) · net à payer = tarif × usage − back-charges</p>
+  </div>
+  <form method="get" style="display:flex;align-items:center;gap:8px;margin:0">
+    <label class="mut" style="margin:0">Période</label>
+    <input type="month" name="period" value="{{ period }}" onchange="this.form.submit()" style="width:auto">
+  </form>
+</div>
+
+{% if erreurs %}
+<div class="card" style="border-color:#7a4a2a">
+  <strong class="err">Certaines données sont indisponibles :</strong>
+  <ul style="margin:8px 0 0">{% for e in erreurs %}<li class="mut">{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="grid">
+  <div class="card"><div class="mut" style="font-size:12px;text-transform:uppercase">Brut sous-traitants</div><div style="font-size:22px;font-weight:700">{{ tot.gross|floatformat:0 }} F</div></div>
+  <div class="card"><div class="mut" style="font-size:12px;text-transform:uppercase">Back-charges déduites</div><div style="font-size:22px;font-weight:700;color:#e0794a">− {{ tot.subBack|floatformat:0 }} F</div></div>
+  <div class="card" style="border-color:var(--acc)"><div class="mut" style="font-size:12px;text-transform:uppercase">Net à payer</div><div style="font-size:22px;font-weight:700;color:var(--acc)">{{ tot.net|floatformat:0 }} F</div></div>
+  <div class="card"><div class="mut" style="font-size:12px;text-transform:uppercase">Back-charges entreprise</div><div style="font-size:22px;font-weight:700">{{ tot.entBack|floatformat:0 }} F</div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Détail par sous-traitant — {{ period }}</h3>
+  {% if not rows %}
+    <p class="mut">Aucun sous-traitant pour cette période. La saisie se fait dans chaque application (Forage / Mine).</p>
+  {% else %}
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>Sous-traitant</th><th>Module</th><th>Brut</th><th>Back-charges</th><th>Net à payer</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><strong>{{ r.name }}</strong></td>
+        <td><span class="pill {% if r.src == 'Forage' %}ok{% else %}off{% endif %}">{{ r.src }}</span></td>
+        <td>{{ r.gross|floatformat:0 }} F</td>
+        <td style="color:#e0794a">{% if r.backCharges %}− {{ r.backCharges|floatformat:0 }} F{% else %}—{% endif %}</td>
+        <td style="font-weight:700;color:var(--acc)">{{ r.net|floatformat:0 }} F</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot><tr style="border-top:2px solid var(--line)"><th>Total</th><th></th><th>{{ tot.gross|floatformat:0 }} F</th><th style="color:#e0794a">− {{ tot.subBack|floatformat:0 }} F</th><th style="color:var(--acc)">{{ tot.net|floatformat:0 }} F</th></tr></tfoot>
+  </table></div>
+  {% endif %}
+  <p class="mut" style="font-size:12px;margin:10px 0 0">Coûts déductibles du bénéfice (net sous-traitants + back-charges entreprise) : <strong>{{ tot.costs|floatformat:0 }} F</strong>. La saisie des sous-traitants, machines, usage et back-charges se fait dans chaque application.</p>
+</div>
+{% endblock %}

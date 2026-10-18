@@ -96,6 +96,30 @@ def fetch_mine_besoins(tenant_id):
         return None, str(e)
 
 
+def fetch_forage_soustraitants(enterprise_id, period):
+    url = f"{settings.FORAGE_BASE_URL}/api/service/soustraitants"
+    try:
+        r = requests.get(url, params={"enterpriseId": enterprise_id, "period": period},
+                         headers=_HEADERS, timeout=settings.METRICS_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return r.json(), None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Forage sous-traitants KO: %s", e)
+        return None, str(e)
+
+
+def fetch_mine_soustraitants(tenant_id, period):
+    url = f"{settings.MINE_BASE_URL}/api/service/soustraitants/"
+    try:
+        r = requests.get(url, params={"tenant": tenant_id, "period": period},
+                         headers=_HEADERS, timeout=settings.METRICS_HTTP_TIMEOUT)
+        r.raise_for_status()
+        return r.json(), None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Mine sous-traitants KO: %s", e)
+        return None, str(e)
+
+
 # --------------------------------------------------------------------------
 # 2. Propagation d'état d'un module (activation / détachement)
 # --------------------------------------------------------------------------
