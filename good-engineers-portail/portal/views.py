@@ -30,9 +30,11 @@ from .services import (
     fetch_forage_besoins,
     fetch_forage_metrics,
     fetch_forage_plan,
+    fetch_forage_soustraitants,
     fetch_mine_besoins,
     fetch_mine_metrics,
     fetch_mine_plan,
+    fetch_mine_soustraitants,
 )
 from .sso import mint_token
 
@@ -741,6 +743,54 @@ def besoins_view(request):
     return render(request, "portal/besoins.html", {
         "entreprise": ent, "items": items,
         "nb_open": sum(1 for b in items if b["is_open"]), "erreurs": erreurs,
+    })
+
+
+@login_required
+def soustraitants_view(request):
+    """Vue consolidée de l'état de paiement des sous-traitants (Forage + Mine)."""
+    import re as _re
+    from datetime import datetime as _dt
+    profil = _profil(request)
+    if profil is None:
+        return render(request, "portal/sans_entreprise.html", status=200)
+    ent = profil.entreprise
+    period = str(request.GET.get("period") or "")[:7]
+    if not _re.match(r"^\d{4}-\d{2}$", period):
+        period = _dt.now().strftime("%Y-%m")
+
+    erreurs = []
+    rows = []  # lignes par sous-traitant, avec la source (module)
+    tot = {"gross": 0.0, "subBack": 0.0, "net": 0.0, "entBack": 0.0, "costs": 0.0}
+
+    def _accumule(res, src):
+        for s in res.get("subcontractors", []):
+            rows.append({"src": src, "name": s.get("name"),
+                         "gross": s.get("gross") or 0, "backCharges": s.get("backCharges") or 0,
+                         "net": s.get("net") or 0})
+        t = res.get("totals", {})
+        tot["gross"] += t.get("gross") or 0
+        tot["subBack"] += t.get("subcontractorBackCharges") or 0
+        tot["net"] += t.get("netToPay") or 0
+        tot["entBack"] += t.get("enterpriseBackCharges") or 0
+        tot["costs"] += t.get("totalCosts") or 0
+
+    if ent.module_forage and ent.forage_enterprise_id is not None:
+        res, err = fetch_forage_soustraitants(ent.forage_enterprise_id, period)
+        if err:
+            erreurs.append(f"Forage : {err}")
+        elif res:
+            _accumule(res, "Forage")
+    if ent.module_mine and ent.mine_tenant_id:
+        res, err = fetch_mine_soustraitants(ent.mine_tenant_id, period)
+        if err:
+            erreurs.append(f"Mine : {err}")
+        elif res:
+            _accumule(res, "Mine")
+
+    rows.sort(key=lambda r: r["net"], reverse=True)
+    return render(request, "portal/soustraitants.html", {
+        "entreprise": ent, "period": period, "rows": rows, "tot": tot, "erreurs": erreurs,
     })
 
 
