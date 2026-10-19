@@ -421,7 +421,10 @@ def gestion_comptes(request, client_id):
             # dans le portail, et dans chaque application dont le module est actif.
             username = (request.POST.get("username") or "").strip()
             password = request.POST.get("password") or ""
-            role_portail = request.POST.get("role_portail") or "membre"
+            # Le premier compte d'une entreprise est administrateur par défaut
+            # (sinon personne ne pourrait gérer le personnel ni les comptes).
+            _defaut_role = "admin" if not ent.profils.exists() else "membre"
+            role_portail = request.POST.get("role_portail") or _defaut_role
             f_role = (request.POST.get("forage_role") or "foreur").strip()
             m_role = (request.POST.get("mine_role") or "Invite").strip()
             existant = User.objects.filter(username=username).first()
@@ -487,8 +490,18 @@ def _entreprise_courante(request):
 
 
 def _peut_gerer_personnel(profil):
-    # Gérer la liste du personnel : admin du compte client (ou superuser).
-    return profil is None or profil.role_portail == "admin"
+    # Le personnel est une donnée opérationnelle de l'entreprise.
+    # Superuser (profil None) ou administrateur du compte : toujours autorisé.
+    # Sinon, on autorise quand même tant qu'aucun administrateur n'a été
+    # désigné pour l'entreprise, afin de ne jamais verrouiller une entreprise
+    # qui ne dispose que d'un compte « membre ».
+    if profil is None:
+        return True
+    if profil.role_portail == "admin":
+        return True
+    return not Profil.objects.filter(
+        entreprise_id=profil.entreprise_id, role_portail="admin"
+    ).exists()
 
 
 @login_required
