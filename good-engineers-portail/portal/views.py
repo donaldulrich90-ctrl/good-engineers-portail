@@ -71,6 +71,15 @@ def login_view(request):
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password") or ""
         user = authenticate(request, username=username, password=password)
+        if user is None and username:
+            # Connexion insensible à la casse : les téléphones mettent souvent
+            # une majuscule automatique au premier caractère de l'identifiant.
+            # On retrouve le compte quelle que soit la casse saisie, puis on
+            # authentifie avec l'identifiant exact enregistré (le mot de passe
+            # reste vérifié normalement).
+            cand = User.objects.filter(username__iexact=username).first()
+            if cand is not None:
+                user = authenticate(request, username=cand.username, password=password)
         if user is not None:
             login(request, user)
             nxt = request.GET.get("next") or "dashboard"
@@ -419,7 +428,10 @@ def gestion_comptes(request, client_id):
         else:
             # Un seul identifiant + un seul mot de passe, créés PARTOUT :
             # dans le portail, et dans chaque application dont le module est actif.
-            username = (request.POST.get("username") or "").strip()
+            # Identifiant en minuscules : cohérent avec Forage et la Mine
+            # (qui normalisent déjà), et évite les échecs de connexion dus à
+            # la majuscule automatique des téléphones.
+            username = (request.POST.get("username") or "").strip().lower()
             password = request.POST.get("password") or ""
             # Le premier compte d'une entreprise est administrateur par défaut
             # (sinon personne ne pourrait gérer le personnel ni les comptes).
@@ -427,7 +439,7 @@ def gestion_comptes(request, client_id):
             role_portail = request.POST.get("role_portail") or _defaut_role
             f_role = (request.POST.get("forage_role") or "foreur").strip()
             m_role = (request.POST.get("mine_role") or "Invite").strip()
-            existant = User.objects.filter(username=username).first()
+            existant = User.objects.filter(username__iexact=username).first()
             lie_ici = existant and Profil.objects.filter(user=existant, entreprise=ent).exists()
             if not username or not password:
                 erreur = "Identifiant et mot de passe obligatoires."
