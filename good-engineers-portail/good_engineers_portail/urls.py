@@ -34,5 +34,8 @@ urlpatterns = [
     # Petite API lue par la barre de bascule (modules actifs de l'entreprise).
     path("api/nav/", views.api_nav, name="api_nav"),
 
+    # Recopie entrante d'un compte créé dans Forage (clé de service).
+    path("api/service/portal-account", views.service_portal_account, name="service_portal_account"),
+
     path("healthz", views.healthz, name="healthz"),
 ]
