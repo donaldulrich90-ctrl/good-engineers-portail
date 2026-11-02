@@ -19,6 +19,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import Employe, Entreprise, JetonConsomme, Pointage, Profil
@@ -481,6 +482,77 @@ def gestion_comptes(request, client_id):
         "ent": ent, "comptes": comptes, "erreur": erreur, "ok": ok,
         "offre": OFFRE_LABELS.get(_offre(ent), "—"),
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def service_portal_account(request):
+    """Recopie automatique d'un compte créé/modifié dans Forage vers le Portail
+    (et, de là, vers la Mine). Appelé par Forage avec la clé de service partagée.
+
+    L'identifiant est relié à l'entreprise du Portail via forage_enterprise_id.
+    Best-effort côté appelant : Forage n'échoue jamais si cet appel échoue.
+    """
+    key = request.headers.get("X-Service-Key", "")
+    if not settings.SERVICE_API_KEY or key != settings.SERVICE_API_KEY:
+        return JsonResponse({"error": "Clé de service invalide"}, status=401)
+    try:
+        data = json.loads(request.body or b"{}")
+    except Exception:  # noqa: BLE001
+        return JsonResponse({"error": "JSON invalide"}, status=400)
+    try:
+        forage_eid = int(data.get("forageEnterpriseId"))
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "forageEnterpriseId requis"}, status=400)
+    username = (data.get("username") or "").strip().lower()
+    password = data.get("password") or ""
+    forage_role = (data.get("role") or "foreur").strip()
+    if not username or not password:
+        return JsonResponse({"error": "username et password requis"}, status=400)
+
+    ent = Entreprise.objects.filter(forage_enterprise_id=forage_eid).first()
+    if ent is None:
+        return JsonResponse(
+            {"error": f"Entreprise Portail introuvable (forage_enterprise_id={forage_eid})"},
+            status=404,
+        )
+
+    existant = User.objects.filter(username__iexact=username).first()
+    # Refuser si l'identifiant appartient déjà à une AUTRE entreprise.
+    if (existant
+            and not Profil.objects.filter(user=existant, entreprise=ent).exists()
+            and Profil.objects.filter(user=existant).exists()):
+        return JsonResponse(
+            {"error": "Identifiant déjà utilisé par un autre client"}, status=409
+        )
+
+    prof = Profil.objects.filter(user=existant).first() if existant else None
+    role_portail = prof.role_portail if prof else ("admin" if not ent.profils.exists() else "membre")
+    mine_role = (prof.mine_role if (prof and prof.mine_role) else "Invite")
+    with transaction.atomic():
+        u = existant or User.objects.create(username=username, first_name=username)
+        u.set_password(password)
+        u.save()
+        Profil.objects.update_or_create(
+            user=u, defaults={
+                "entreprise": ent, "role_portail": role_portail,
+                "forage_username": username if ent.module_forage else "",
+                "forage_role": forage_role if ent.module_forage else "",
+                "mine_username": username if ent.module_mine else "",
+                "mine_role": mine_role if ent.module_mine else "",
+            },
+        )
+
+    # Propagation vers la Mine (best-effort). On ne rappelle PAS Forage (origine).
+    mine_ok = None
+    if ent.module_mine and ent.mine_tenant_id:
+        try:
+            o, _e = creer_user_mine(ent.mine_tenant_id, username, password, mine_role)
+            mine_ok = bool(o)
+        except Exception:  # noqa: BLE001
+            mine_ok = False
+
+    return JsonResponse({"ok": True, "username": username, "entreprise": ent.pk, "mine": mine_ok})
 
 
 # ==========================================================================
