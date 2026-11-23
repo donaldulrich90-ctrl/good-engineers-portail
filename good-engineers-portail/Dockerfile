@@ -24,5 +24,5 @@ ENV PORTAIL_DB_PATH=/app/data/portail.db
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else 1)"
 
-# migrate + collectstatic au démarrage, puis gunicorn.
-CMD sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn good_engineers_portail.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"
+# migrate + récupération admin (one-shot) + collectstatic au démarrage, puis gunicorn.
+CMD sh -c "python manage.py migrate --noinput && (python manage.py recuperer_admin || true) && python manage.py collectstatic --noinput && gunicorn good_engineers_portail.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"
