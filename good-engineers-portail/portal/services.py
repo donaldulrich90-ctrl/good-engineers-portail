@@ -137,11 +137,18 @@ def propager_etat_mine(tenant_id, active: bool):
     _post_state(url, {"tenant": tenant_id, "active": bool(active)}, "Mine")
 
 
-def creer_entreprise_forage(nom, slug):
-    """Crée (ou retrouve) l'entreprise dans Forage. Renvoie (enterpriseId, erreur)."""
+def creer_entreprise_forage(nom, slug, type_mine=""):
+    """Crée (ou retrouve/synchronise) l'entreprise dans Forage. Renvoie (enterpriseId, erreur).
+
+    type_mine ('ciel_ouvert'|'souterrain'|'carriere') est propagé comme domaine
+    d'activité unique côté Forage (cloisonnement de l'environnement).
+    """
     url = f"{settings.FORAGE_BASE_URL}/api/service/enterprise"
+    payload = {"name": nom, "slug": slug}
+    if type_mine:
+        payload["type_mine"] = type_mine
     try:
-        r = requests.post(url, json={"name": nom, "slug": slug}, headers=_HEADERS,
+        r = requests.post(url, json=payload, headers=_HEADERS,
                           timeout=settings.METRICS_HTTP_TIMEOUT)
         r.raise_for_status()
         return r.json().get("id"), None
@@ -150,11 +157,17 @@ def creer_entreprise_forage(nom, slug):
         return None, str(e)
 
 
-def creer_entreprise_mine(nom, slug):
-    """Crée (ou retrouve) le tenant dans la Mine. Renvoie (tenant, erreur)."""
+def creer_entreprise_mine(nom, slug, type_mine=""):
+    """Crée (ou retrouve/synchronise) le tenant dans la Mine. Renvoie (tenant, erreur).
+
+    type_mine est propagé pour cloisonner les onglets côté Mine.
+    """
     url = f"{settings.MINE_BASE_URL}/api/service/enterprise/"
+    payload = {"name": nom, "tenant": slug}
+    if type_mine:
+        payload["type_mine"] = type_mine
     try:
-        r = requests.post(url, json={"name": nom, "tenant": slug}, headers=_HEADERS,
+        r = requests.post(url, json=payload, headers=_HEADERS,
                           timeout=settings.METRICS_HTTP_TIMEOUT)
         r.raise_for_status()
         return r.json().get("tenant"), None

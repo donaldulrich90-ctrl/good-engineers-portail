@@ -343,9 +343,13 @@ def gestion_client_edit(request, client_id=None):
         active = bool(request.POST.get("active"))
         forage_id = (request.POST.get("forage_enterprise_id") or "").strip()
         mine_tenant = (request.POST.get("mine_tenant_id") or "").strip()
+        type_mine = (request.POST.get("type_mine") or "").strip()
+        _types_ok = {c[0] for c in Entreprise.TYPE_MINE_CHOICES}
 
         if not nom:
             erreur = "Le nom est obligatoire."
+        elif type_mine not in _types_ok:
+            erreur = "Le type de mine (ciel ouvert, souterraine ou carrière) est obligatoire."
         else:
             soucis = []
             try:
@@ -354,23 +358,23 @@ def gestion_client_edit(request, client_id=None):
                 forage_val = None
             mine_val = mine_tenant if (module_mine and mine_tenant) else ""
 
-            # Un module coché sans correspondance : on crée l'entreprise dans
-            # l'application et on récupère son identifiant automatiquement.
-            if module_forage and forage_val is None:
-                fid, err = creer_entreprise_forage(nom, slug)
+            # Module coché : on crée l'entreprise dans l'application si besoin, et
+            # on propage/synchronise le type de mine (cloisonnement des onglets).
+            if module_forage:
+                fid, err = creer_entreprise_forage(nom, slug, type_mine)
                 if fid is not None:
                     forage_val = int(fid)
-                else:
+                elif forage_val is None:
                     soucis.append(f"Forage ({err})")
-            if module_mine and not mine_val:
-                tid, err = creer_entreprise_mine(nom, slug)
+            if module_mine:
+                tid, err = creer_entreprise_mine(nom, slug, type_mine)
                 if tid:
                     mine_val = tid
-                else:
+                elif not mine_val:
                     soucis.append(f"Mine ({err})")
 
             champs = {
-                "nom": nom, "slug": slug, "active": active,
+                "nom": nom, "slug": slug, "active": active, "type_mine": type_mine,
                 "module_forage": module_forage, "module_mine": module_mine,
                 "forage_enterprise_id": forage_val if module_forage else None,
                 "mine_tenant_id": mine_val if module_mine else "",
