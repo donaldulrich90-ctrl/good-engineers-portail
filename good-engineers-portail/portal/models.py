@@ -14,9 +14,23 @@ from django.db import models
 class Entreprise(models.Model):
     """Un client. Porte les cases « modules » et le mapping vers les apps."""
 
+    TYPE_MINE_CHOICES = [
+        ("ciel_ouvert", "Mine à ciel ouvert"),
+        ("souterrain", "Mine souterraine"),
+        ("carriere", "Carrière"),
+    ]
+
     nom = models.CharField("nom", max_length=200)
     slug = models.SlugField("slug", unique=True)
     active = models.BooleanField("entreprise active", default=True)
+
+    # Type de mine : détermine l'environnement (onglets) visible dans chaque
+    # application. Une entreprise « ciel ouvert » ne voit ni le souterrain ni
+    # la carrière, et réciproquement. Propagé à Forage et Mine à la création.
+    type_mine = models.CharField(
+        "type de mine", max_length=20, blank=True, default="",
+        choices=TYPE_MINE_CHOICES,
+    )
 
     # --- Modules souscrits (les « cases à cocher ») ---------------------
     module_forage = models.BooleanField("module Forage", default=False)

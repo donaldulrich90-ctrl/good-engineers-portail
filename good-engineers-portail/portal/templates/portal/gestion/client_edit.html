@@ -13,6 +13,14 @@
     <label for="slug">Slug (laisser vide = généré du nom)</label>
     <input id="slug" name="slug" value="{{ ent.slug|default:'' }}">
 
+    <label for="type_mine" style="margin-top:12px">Type de mine <span style="color:#c0392b">*</span> — détermine les onglets visibles dans Forage et Mine</label>
+    <select id="type_mine" name="type_mine" required>
+      <option value="">— Choisir le type —</option>
+      <option value="ciel_ouvert" {% if ent.type_mine == 'ciel_ouvert' %}selected{% endif %}>Mine à ciel ouvert</option>
+      <option value="souterrain" {% if ent.type_mine == 'souterrain' %}selected{% endif %}>Mine souterraine</option>
+      <option value="carriere" {% if ent.type_mine == 'carriere' %}selected{% endif %}>Carrière</option>
+    </select>
+
     <div style="display:flex;gap:18px;margin:14px 0 4px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:8px;margin:0">
         <input type="checkbox" name="module_forage" style="width:auto" {% if ent.module_forage %}checked{% endif %}> Module Forage
