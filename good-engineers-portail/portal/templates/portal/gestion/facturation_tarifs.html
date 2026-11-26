@@ -1,0 +1,45 @@
+{% extends "portal/base.html" %}
+{% block titre %}Tarifs des modules{% endblock %}
+{% block tete %}
+<style>
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:600}
+  h2{margin:4px 0 2px;font-size:24px}
+  .subnav{display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap}
+  .subnav a{font-size:13px;padding:7px 13px;border:1px solid var(--line);border-radius:999px;color:var(--mut)}
+  .subnav a.on{background:var(--acc);border-color:var(--acc);color:#1a1205;font-weight:600}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .sect .hint{margin:0 0 14px;color:var(--mut);font-size:13px}
+  .trow{display:grid;grid-template-columns:1.4fr 1fr .8fr auto;gap:12px;align-items:end;padding:12px 0;border-top:1px solid var(--line)}
+  @media(max-width:620px){.trow{grid-template-columns:1fr 1fr}}
+  label{display:block;font-size:12px;color:var(--mut);margin:0 0 4px}
+  input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#0c0e13;color:var(--txt)}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt)}
+  .chk input{width:auto}
+  .btn.primaire{display:inline-block;padding:9px 16px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#1a1205;font-weight:600;cursor:pointer;margin-top:12px}
+</style>
+{% endblock %}
+{% block contenu %}
+<div class="eyebrow">GOOD ENGINEERS · comptabilité</div>
+<h2>Tarifs des modules</h2>
+<div class="subnav">
+  <a href="{% url 'gestion_clients' %}">Clients</a>
+  <a href="{% url 'facturation' %}">Facturation</a>
+  <a class="on" href="{% url 'facturation_tarifs' %}">Tarifs des modules</a>
+</div>
+
+<div class="sect">
+  <p class="hint">Prix mensuel facturé par module. La facture d'une entreprise additionne les tarifs de ses modules actifs (Forage, Mine). Montants en entiers (FCFA).</p>
+  <form method="post">
+    {% csrf_token %}
+    {% for t in tarifs %}
+    <div class="trow">
+      <div><label>Libellé — {{ t.code }}</label><input name="libelle_{{ t.code }}" value="{{ t.libelle }}"></div>
+      <div><label>Prix mensuel</label><input type="number" min="0" step="1" name="prix_{{ t.code }}" value="{{ t.prix_mensuel }}"></div>
+      <div><label>Devise</label><input name="devise_{{ t.code }}" value="{{ t.devise }}"></div>
+      <div><label class="chk"><input type="checkbox" name="actif_{{ t.code }}" {% if t.actif %}checked{% endif %}> Actif</label></div>
+    </div>
+    {% endfor %}
+    <button class="btn primaire" type="submit">Enregistrer les tarifs</button>
+  </form>
+</div>
+{% endblock %}

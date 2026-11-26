@@ -1,0 +1,116 @@
+{% extends "portal/base.html" %}
+{% block titre %}{{ f.numero }} — {{ f.entreprise.nom }}{% endblock %}
+{% block tete %}
+<style>
+  .crumb{margin:0 0 14px;font-size:13px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:600}
+  h2{margin:4px 0 2px;font-size:23px}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .sect h3{margin:0 0 12px;font-size:15px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--mut);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  .r{text-align:right}.mut{color:var(--mut)}
+  .totrow td{font-weight:700;border-top:2px solid var(--line)}
+  .kv{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv .v{font-weight:600}
+  .big{font-size:22px;font-weight:700}
+  label{display:block;font-size:12px;color:var(--mut);margin:8px 0 4px}
+  input,select{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#0c0e13;color:var(--txt)}
+  .btn{display:inline-block;padding:9px 15px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--txt);cursor:pointer;font-size:14px}
+  .btn.primaire{background:var(--acc);border-color:var(--acc);color:#1a1205;font-weight:600}
+  .btn.danger{border-color:#e0794a;color:#e0794a}
+  .st{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid transparent}
+  .st.payee{color:var(--ok);background:rgba(46,158,107,.12);border-color:rgba(46,158,107,.4)}
+  .st.partielle{color:#e0a13a;background:rgba(224,161,58,.12);border-color:rgba(224,161,58,.4)}
+  .st.impayee{color:#e0794a;background:rgba(224,121,74,.12);border-color:rgba(224,121,74,.4)}
+  .st.emise{color:#6aa6e6;background:rgba(77,139,214,.12);border-color:rgba(77,139,214,.4)}
+  .msg{background:rgba(46,158,107,.1);border:1px solid rgba(46,158,107,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:14px}
+  .inline{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+</style>
+{% endblock %}
+{% block contenu %}
+<p class="crumb"><a href="{% url 'facturation' %}">← Facturation</a></p>
+<div class="eyebrow">Facture client</div>
+<h2>{{ f.numero }} — {{ f.entreprise.nom }} <span class="st {{ f.statut }}">{{ f.get_statut_display }}</span></h2>
+<p class="mut" style="margin:2px 0 16px">Période {{ f.periode }} · émise le {{ f.date_emission }}</p>
+
+{% if message %}<div class="msg">✅ {{ message }}</div>{% endif %}
+
+<div class="grid2">
+  <div class="sect">
+    <h3>Lignes de la facture</h3>
+    <table>
+      <thead><tr><th>Désignation</th><th class="r">Montant</th></tr></thead>
+      <tbody>
+        {% for l in lignes %}
+        <tr><td>{{ l.libelle }}</td><td class="r">{{ l.montant }} {{ f.devise }}</td></tr>
+        {% empty %}
+        <tr><td colspan="2" class="mut">Aucune ligne.</td></tr>
+        {% endfor %}
+        <tr class="totrow"><td>Total</td><td class="r">{{ total }} {{ f.devise }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sect">
+    <h3>Encaissement</h3>
+    <div class="kv"><span>Total facturé</span><span class="v">{{ total }} {{ f.devise }}</span></div>
+    <div class="kv"><span>Déjà payé</span><span class="v" style="color:var(--ok)">{{ paye }} {{ f.devise }}</span></div>
+    <div class="kv"><span>Reste dû</span><span class="v big" style="color:{% if reste > 0 %}#e0794a{% else %}var(--ok){% endif %}">{{ reste }} {{ f.devise }}</span></div>
+
+    <form method="post" style="margin-top:14px">
+      {% csrf_token %}<input type="hidden" name="action" value="paiement">
+      <div class="inline">
+        <div style="flex:1;min-width:120px"><label>Montant reçu</label><input type="number" min="0" step="1" name="montant" placeholder="0"></div>
+        <div style="flex:1;min-width:120px"><label>Date</label><input type="date" name="date" value="{{ today }}"></div>
+      </div>
+      <div class="inline">
+        <div style="flex:1;min-width:120px"><label>Moyen</label>
+          <select name="moyen">{% for v,lab in moyens %}<option value="{{ v }}">{{ lab }}</option>{% endfor %}</select></div>
+        <div style="flex:1;min-width:120px"><label>Référence</label><input name="reference" placeholder="N° transaction"></div>
+      </div>
+      <button class="btn primaire" type="submit" style="margin-top:12px">Enregistrer le paiement</button>
+    </form>
+  </div>
+</div>
+
+<div class="sect">
+  <h3>Paiements reçus</h3>
+  <table>
+    <thead><tr><th>Date</th><th>Moyen</th><th>Référence</th><th class="r">Montant</th><th></th></tr></thead>
+    <tbody>
+      {% for p in paiements %}
+      <tr>
+        <td>{{ p.date }}</td><td>{{ p.get_moyen_display }}</td><td class="mut">{{ p.reference }}</td>
+        <td class="r">{{ p.montant }} {{ f.devise }}</td>
+        <td class="r">
+          <form method="post" style="display:inline" onsubmit="return confirm('Supprimer ce paiement ?')">
+            {% csrf_token %}<input type="hidden" name="action" value="del_paiement"><input type="hidden" name="paiement_id" value="{{ p.pk }}">
+            <button class="btn danger" style="padding:4px 10px" type="submit">Suppr.</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="mut">Aucun paiement enregistré.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="sect">
+  <h3>Statut &amp; actions</h3>
+  <form method="post" class="inline">
+    {% csrf_token %}<input type="hidden" name="action" value="statut">
+    <div style="min-width:200px"><label>Changer le statut</label>
+      <select name="statut">{% for v,lab in statuts %}<option value="{{ v }}" {% if v == f.statut %}selected{% endif %}>{{ lab }}</option>{% endfor %}</select></div>
+    <button class="btn" type="submit">Appliquer</button>
+  </form>
+  <form method="post" style="margin-top:14px" onsubmit="return confirm('Supprimer définitivement cette facture ?')">
+    {% csrf_token %}<input type="hidden" name="action" value="supprimer">
+    <button class="btn danger" type="submit">Supprimer la facture</button>
+  </form>
+</div>
+{% endblock %}

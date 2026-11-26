@@ -38,7 +38,10 @@
     <h2>Clients de la plateforme</h2>
     <p>Création, abonnement, type de mine et accès de chaque entreprise cliente.</p>
   </div>
-  <a class="btn primaire" href="{% url 'gestion_client_nouveau' %}">+ Nouveau client</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a class="btn" href="{% url 'facturation' %}">💰 Facturation</a>
+    <a class="btn primaire" href="{% url 'gestion_client_nouveau' %}">+ Nouveau client</a>
+  </div>
 </div>
 
 <div class="stats">
