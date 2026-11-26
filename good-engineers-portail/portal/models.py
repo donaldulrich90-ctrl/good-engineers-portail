@@ -354,3 +354,115 @@ class RapportCommentaire(models.Model):
 
     def __str__(self):
         return f"Commentaire {self.entreprise} {self.start}→{self.end}"
+
+
+# ---------------------------------------------------------------------------
+# Facturation des clients (comptabilité GOOD ENGINEERS) — « par module souscrit »
+# ---------------------------------------------------------------------------
+class ModuleTarif(models.Model):
+    """Tarif mensuel d'un module. La facture d'une entreprise additionne les
+    tarifs de ses modules actifs."""
+
+    MODULES = [("forage", "Forage"), ("mine", "Mine")]
+
+    code = models.CharField("module", max_length=20, unique=True, choices=MODULES)
+    libelle = models.CharField("libellé", max_length=80)
+    prix_mensuel = models.DecimalField("prix mensuel", max_digits=14, decimal_places=0, default=0)
+    devise = models.CharField("devise", max_length=8, default="XOF")
+    actif = models.BooleanField("actif", default=True)
+
+    class Meta:
+        verbose_name = "tarif de module"
+        verbose_name_plural = "tarifs de modules"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.libelle} — {self.prix_mensuel} {self.devise}/mois"
+
+
+class Facture(models.Model):
+    STATUTS = [
+        ("brouillon", "Brouillon"),
+        ("emise", "Émise"),
+        ("partielle", "Partiellement payée"),
+        ("payee", "Payée"),
+        ("impayee", "Impayée"),
+    ]
+
+    entreprise = models.ForeignKey(Entreprise, on_delete=models.CASCADE, related_name="factures")
+    numero = models.CharField("numéro", max_length=30, unique=True)
+    periode = models.CharField("période (YYYY-MM)", max_length=7)
+    date_emission = models.DateField("date d'émission")
+    echeance = models.DateField("échéance", null=True, blank=True)
+    devise = models.CharField("devise", max_length=8, default="XOF")
+    statut = models.CharField("statut", max_length=12, choices=STATUTS, default="emise")
+    note = models.TextField("note", blank=True, default="")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "facture"
+        verbose_name_plural = "factures"
+        ordering = ["-periode", "-cree_le"]
+
+    def __str__(self):
+        return f"{self.numero} — {self.entreprise}"
+
+    def total(self):
+        from decimal import Decimal
+        return sum((l.montant for l in self.lignes.all()), Decimal("0"))
+
+    def paye(self):
+        from decimal import Decimal
+        return sum((p.montant for p in self.paiements.all()), Decimal("0"))
+
+    def reste(self):
+        return self.total() - self.paye()
+
+    def maj_statut(self):
+        """Recalcule le statut depuis les montants (hors 'brouillon')."""
+        if self.statut == "brouillon":
+            return
+        t, p = self.total(), self.paye()
+        if p <= 0:
+            self.statut = "impayee"
+        elif p >= t:
+            self.statut = "payee"
+        else:
+            self.statut = "partielle"
+        self.save(update_fields=["statut"])
+
+
+class FactureLigne(models.Model):
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="lignes")
+    libelle = models.CharField("libellé", max_length=120)
+    module_code = models.CharField("module", max_length=20, blank=True, default="")
+    montant = models.DecimalField("montant", max_digits=14, decimal_places=0, default=0)
+
+    def __str__(self):
+        return f"{self.libelle} — {self.montant}"
+
+
+class Paiement(models.Model):
+    MOYENS = [
+        ("especes", "Espèces"),
+        ("virement", "Virement"),
+        ("mobile", "Mobile money"),
+        ("cheque", "Chèque"),
+        ("autre", "Autre"),
+    ]
+
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="paiements")
+    date = models.DateField("date")
+    montant = models.DecimalField("montant", max_digits=14, decimal_places=0, default=0)
+    moyen = models.CharField("moyen", max_length=12, choices=MOYENS, default="virement")
+    reference = models.CharField("référence", max_length=80, blank=True, default="")
+    note = models.CharField("note", max_length=200, blank=True, default="")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "paiement"
+        verbose_name_plural = "paiements"
+        ordering = ["-date", "-cree_le"]
+
+    def __str__(self):
+        return f"{self.montant} — {self.facture.numero}"

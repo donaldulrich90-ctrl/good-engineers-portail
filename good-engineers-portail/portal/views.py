@@ -22,7 +22,8 @@ from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import Employe, Entreprise, JetonConsomme, Pointage, Profil
+from .models import (Employe, Entreprise, Facture, FactureLigne, JetonConsomme,
+                     ModuleTarif, Paiement, Pointage, Profil)
 from .services import (
     creer_entreprise_forage,
     creer_entreprise_mine,
@@ -985,3 +986,191 @@ def suivi_plan_view(request):
         "mine_chart_json": json.dumps(mine_prog["chart"]) if mine_prog else "null",
         "erreurs": erreurs,
     })
+
+
+# ===========================================================================
+# FACTURATION DES CLIENTS (comptabilité GOOD ENGINEERS) — réservé gestionnaire
+# ===========================================================================
+_MOYENS_PAIEMENT = Paiement.MOYENS
+
+
+def _ensure_tarifs():
+    """Garantit l'existence d'un tarif par module (prix 0 par défaut, à régler)."""
+    for code, lib in ModuleTarif.MODULES:
+        ModuleTarif.objects.get_or_create(code=code, defaults={"libelle": lib, "prix_mensuel": 0})
+
+
+def _modules_actifs_codes(entreprise):
+    codes = []
+    if entreprise.module_forage:
+        codes.append("forage")
+    if entreprise.module_mine:
+        codes.append("mine")
+    return codes
+
+
+def _montant_attendu(entreprise, tarifs):
+    """Montant mensuel attendu = somme des tarifs des modules actifs."""
+    from decimal import Decimal
+    total = Decimal("0")
+    for code in _modules_actifs_codes(entreprise):
+        t = tarifs.get(code)
+        if t and t.actif:
+            total += t.prix_mensuel
+    return total
+
+
+def _numero_facture():
+    annee = date.today().year
+    n = Facture.objects.filter(numero__startswith=f"FAC-{annee}-").count() + 1
+    while Facture.objects.filter(numero=f"FAC-{annee}-{n:04d}").exists():
+        n += 1
+    return f"FAC-{annee}-{n:04d}"
+
+
+@gestionnaire
+def facturation(request):
+    from decimal import Decimal
+    _ensure_tarifs()
+    tarifs = {t.code: t for t in ModuleTarif.objects.all()}
+    periode = (request.GET.get("periode") or date.today().strftime("%Y-%m")).strip()
+
+    # Revenu mensuel récurrent attendu (toutes entreprises actives).
+    mrr = Decimal("0")
+    lignes_ent = []
+    factures_periode = {f.entreprise_id: f for f in Facture.objects.filter(periode=periode)}
+    for e in Entreprise.objects.filter(active=True).order_by("nom"):
+        att = _montant_attendu(e, tarifs)
+        mrr += att
+        lignes_ent.append({
+            "ent": e, "attendu": att,
+            "modules": _modules_actifs_codes(e),
+            "facture": factures_periode.get(e.id),
+        })
+
+    # Totaux de la période.
+    facs = list(Facture.objects.filter(periode=periode).prefetch_related("lignes", "paiements"))
+    total_facture = sum((f.total() for f in facs), Decimal("0"))
+    total_encaisse = sum((f.paye() for f in facs), Decimal("0"))
+    # Impayés : reste dû sur toutes les factures émises (toutes périodes).
+    impayes = Decimal("0")
+    for f in Facture.objects.exclude(statut="brouillon").prefetch_related("lignes", "paiements"):
+        impayes += max(f.reste(), Decimal("0"))
+
+    recentes = Facture.objects.select_related("entreprise").prefetch_related("lignes", "paiements")[:40]
+    recentes_rows = [{"f": f, "total": f.total(), "paye": f.paye(), "reste": f.reste()} for f in recentes]
+
+    ctx = {
+        "periode": periode, "mrr": mrr, "devise": "XOF",
+        "total_facture": total_facture, "total_encaisse": total_encaisse, "impayes": impayes,
+        "lignes_ent": lignes_ent, "recentes": recentes_rows,
+        "nb_factures_periode": len(facs),
+    }
+    return render(request, "portal/gestion/facturation.html", ctx)
+
+
+@gestionnaire
+def facturation_tarifs(request):
+    _ensure_tarifs()
+    if request.method == "POST":
+        for t in ModuleTarif.objects.all():
+            val = (request.POST.get(f"prix_{t.code}") or "").strip()
+            lib = (request.POST.get(f"libelle_{t.code}") or "").strip()
+            dev = (request.POST.get(f"devise_{t.code}") or "XOF").strip() or "XOF"
+            actif = bool(request.POST.get(f"actif_{t.code}"))
+            try:
+                from decimal import Decimal
+                t.prix_mensuel = Decimal(val or "0")
+            except Exception:  # noqa: BLE001
+                pass
+            if lib:
+                t.libelle = lib
+            t.devise = dev
+            t.actif = actif
+            t.save()
+        return redirect(reverse("facturation_tarifs"))
+    return render(request, "portal/gestion/facturation_tarifs.html",
+                  {"tarifs": ModuleTarif.objects.all()})
+
+
+@gestionnaire
+@require_http_methods(["POST"])
+def facture_nouvelle(request):
+    from decimal import Decimal
+    _ensure_tarifs()
+    tarifs = {t.code: t for t in ModuleTarif.objects.all()}
+    ent = get_object_or_404(Entreprise, pk=request.POST.get("entreprise_id"))
+    periode = (request.POST.get("periode") or date.today().strftime("%Y-%m")).strip()
+
+    if Facture.objects.filter(entreprise=ent, periode=periode).exists():
+        return redirect(f"{reverse('facturation')}?periode={periode}")
+
+    codes = _modules_actifs_codes(ent)
+    if not codes:
+        return redirect(f"{reverse('facturation')}?periode={periode}")
+
+    with transaction.atomic():
+        fac = Facture.objects.create(
+            entreprise=ent, numero=_numero_facture(), periode=periode,
+            date_emission=date.today(), devise="XOF", statut="emise",
+        )
+        for code in codes:
+            t = tarifs.get(code)
+            if t and t.actif:
+                FactureLigne.objects.create(
+                    facture=fac, libelle=f"Abonnement {t.libelle} — {periode}",
+                    module_code=code, montant=t.prix_mensuel or Decimal("0"),
+                )
+        fac.maj_statut()
+    return redirect(reverse("facture_detail", args=[fac.pk]))
+
+
+@gestionnaire
+def facture_detail(request, facture_id):
+    from decimal import Decimal
+    fac = get_object_or_404(Facture.objects.select_related("entreprise"), pk=facture_id)
+    message = None
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "paiement":
+            try:
+                montant = Decimal((request.POST.get("montant") or "0").strip() or "0")
+            except Exception:  # noqa: BLE001
+                montant = Decimal("0")
+            if montant > 0:
+                Paiement.objects.create(
+                    facture=fac,
+                    date=(request.POST.get("date") or date.today().isoformat()),
+                    montant=montant,
+                    moyen=(request.POST.get("moyen") or "virement"),
+                    reference=(request.POST.get("reference") or "").strip(),
+                    note=(request.POST.get("note") or "").strip(),
+                )
+                fac.maj_statut()
+                message = "Paiement enregistré."
+            else:
+                message = "Montant de paiement invalide."
+        elif action == "del_paiement":
+            Paiement.objects.filter(pk=request.POST.get("paiement_id"), facture=fac).delete()
+            fac.maj_statut()
+            message = "Paiement supprimé."
+        elif action == "statut":
+            st = request.POST.get("statut")
+            if st in dict(Facture.STATUTS):
+                fac.statut = st
+                fac.save(update_fields=["statut"])
+                if st != "brouillon":
+                    fac.maj_statut()
+            message = "Statut mis à jour."
+        elif action == "supprimer":
+            fac.delete()
+            return redirect(reverse("facturation"))
+
+    ctx = {
+        "f": fac, "message": message,
+        "lignes": fac.lignes.all(), "paiements": fac.paiements.all(),
+        "total": fac.total(), "paye": fac.paye(), "reste": fac.reste(),
+        "moyens": _MOYENS_PAIEMENT, "statuts": Facture.STATUTS,
+        "today": date.today().isoformat(),
+    }
+    return render(request, "portal/gestion/facture_detail.html", ctx)

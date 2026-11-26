@@ -31,6 +31,12 @@ urlpatterns = [
     path("gestion/client/<int:client_id>/", views.gestion_client_edit, name="gestion_client_edit"),
     path("gestion/client/<int:client_id>/comptes/", views.gestion_comptes, name="gestion_comptes"),
 
+    # Facturation des clients (comptabilité GOOD ENGINEERS).
+    path("gestion/facturation/", views.facturation, name="facturation"),
+    path("gestion/facturation/tarifs/", views.facturation_tarifs, name="facturation_tarifs"),
+    path("gestion/facturation/facture/nouvelle/", views.facture_nouvelle, name="facture_nouvelle"),
+    path("gestion/facturation/facture/<int:facture_id>/", views.facture_detail, name="facture_detail"),
+
     # Petite API lue par la barre de bascule (modules actifs de l'entreprise).
     path("api/nav/", views.api_nav, name="api_nav"),
 
