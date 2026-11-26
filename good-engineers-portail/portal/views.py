@@ -321,13 +321,23 @@ gestionnaire = user_passes_test(lambda u: u.is_superuser, login_url="login")
 @gestionnaire
 def gestion_clients(request):
     clients = []
+    stats = {"total": 0, "actifs": 0, "non_types": 0,
+             "ciel_ouvert": 0, "souterrain": 0, "carriere": 0}
     for e in Entreprise.objects.all():
         clients.append({
             "obj": e,
             "offre": OFFRE_LABELS.get(_offre(e), "—"),
             "nb_comptes": e.profils.count(),
         })
-    return render(request, "portal/gestion/clients.html", {"clients": clients})
+        stats["total"] += 1
+        if e.active:
+            stats["actifs"] += 1
+        if e.type_mine in stats:
+            stats[e.type_mine] += 1
+        else:
+            stats["non_types"] += 1
+    return render(request, "portal/gestion/clients.html",
+                  {"clients": clients, "stats": stats})
 
 
 @gestionnaire

@@ -1,59 +1,111 @@
 {% extends "portal/base.html" %}
 {% block titre %}{% if ent %}Modifier {{ ent.nom }}{% else %}Nouveau client{% endif %}{% endblock %}
+{% block tete %}
+<style>
+  .crumb{margin:0 0 14px;font-size:13px}
+  .pg-head .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);font-weight:600}
+  .pg-head h2{margin:4px 0 2px;font-size:23px}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .sect h3{margin:0 0 2px;font-size:15px}
+  .sect .hint{margin:0 0 14px;color:var(--mut);font-size:13px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:620px){.form-grid{grid-template-columns:1fr}}
+  .full{grid-column:1 / -1}
+  .req{color:#e0794a}
+  .type-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px}
+  @media(max-width:620px){.type-opts{grid-template-columns:1fr}}
+  .type-opt{position:relative}
+  .type-opt input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .type-opt .box{border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;transition:.15s;background:#0c0e13}
+  .type-opt .box .ic{font-size:20px}
+  .type-opt .box .nm{font-weight:600;margin-top:4px;font-size:14px}
+  .type-opt .box .ds{font-size:11px;color:var(--mut);margin-top:2px}
+  .type-opt input:checked + .box{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .toggles{display:flex;gap:22px;flex-wrap:wrap}
+  .toggles label{display:flex;align-items:center;gap:8px;margin:0;color:var(--txt);font-size:14px}
+  .toggles input{width:auto}
+  .actionbar{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+  .logo-prev{margin:6px 0 10px;padding:10px;background:#fff;border-radius:8px;display:inline-block}
+</style>
+{% endblock %}
 {% block contenu %}
-<p style="margin:0 0 10px"><a href="{% url 'gestion_clients' %}">← Clients</a></p>
-<div class="card">
-  <h2 style="margin-top:0">{% if ent %}Modifier le client{% else %}Nouveau client{% endif %}</h2>
-  {% if erreur %}<p class="err">{{ erreur }}</p>{% endif %}
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <label for="nom">Nom du client</label>
-    <input id="nom" name="nom" value="{{ ent.nom|default:'' }}" required>
+<p class="crumb"><a href="{% url 'gestion_clients' %}">← Clients</a></p>
+<div class="pg-head">
+  <div>
+    <div class="eyebrow">Console propriétaire</div>
+    <h2>{% if ent %}Modifier le client{% else %}Nouveau client{% endif %}</h2>
+  </div>
+</div>
 
-    <label for="slug">Slug (laisser vide = généré du nom)</label>
-    <input id="slug" name="slug" value="{{ ent.slug|default:'' }}">
+{% if erreur %}<div class="sect" style="border-color:#e0794a"><p class="err" style="margin:0">{{ erreur }}</p></div>{% endif %}
 
-    <label for="type_mine" style="margin-top:12px">Type de mine <span style="color:#c0392b">*</span> — détermine les onglets visibles dans Forage et Mine</label>
-    <select id="type_mine" name="type_mine" required>
-      <option value="">— Choisir le type —</option>
-      <option value="ciel_ouvert" {% if ent.type_mine == 'ciel_ouvert' %}selected{% endif %}>Mine à ciel ouvert</option>
-      <option value="souterrain" {% if ent.type_mine == 'souterrain' %}selected{% endif %}>Mine souterraine</option>
-      <option value="carriere" {% if ent.type_mine == 'carriere' %}selected{% endif %}>Carrière</option>
-    </select>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
 
-    <div style="display:flex;gap:18px;margin:14px 0 4px;flex-wrap:wrap">
-      <label style="display:flex;align-items:center;gap:8px;margin:0">
-        <input type="checkbox" name="module_forage" style="width:auto" {% if ent.module_forage %}checked{% endif %}> Module Forage
+  <div class="sect">
+    <h3>Identité</h3>
+    <p class="hint">Nom commercial et identifiant technique (slug) de l'entreprise.</p>
+    <div class="form-grid">
+      <div><label for="nom">Nom du client <span class="req">*</span></label>
+        <input id="nom" name="nom" value="{{ ent.nom|default:'' }}" required></div>
+      <div><label for="slug">Slug (laisser vide = généré du nom)</label>
+        <input id="slug" name="slug" value="{{ ent.slug|default:'' }}"></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Type de mine <span class="req">*</span></h3>
+    <p class="hint">Détermine l'environnement (les onglets) visible dans Forage et Mine. Une entreprise « ciel ouvert » ne voit ni le souterrain ni la carrière, et réciproquement.</p>
+    <div class="type-opts">
+      <label class="type-opt">
+        <input type="radio" name="type_mine" value="ciel_ouvert" {% if ent.type_mine == 'ciel_ouvert' %}checked{% endif %} required>
+        <span class="box"><span class="ic">⛰</span><div class="nm">Mine à ciel ouvert</div><div class="ds">Fosse, gradins</div></span>
       </label>
-      <label style="display:flex;align-items:center;gap:8px;margin:0">
-        <input type="checkbox" name="module_mine" style="width:auto" {% if ent.module_mine %}checked{% endif %}> Module Mine
+      <label class="type-opt">
+        <input type="radio" name="type_mine" value="souterrain" {% if ent.type_mine == 'souterrain' %}checked{% endif %}>
+        <span class="box"><span class="ic">⛏</span><div class="nm">Mine souterraine</div><div class="ds">Galeries, stopes</div></span>
       </label>
-      <label style="display:flex;align-items:center;gap:8px;margin:0">
-        <input type="checkbox" name="active" style="width:auto" {% if ent.active or not ent %}checked{% endif %}> Entreprise active
+      <label class="type-opt">
+        <input type="radio" name="type_mine" value="carriere" {% if ent.type_mine == 'carriere' %}checked{% endif %}>
+        <span class="box"><span class="ic">🏔</span><div class="nm">Carrière</div><div class="ds">Granulats, concassage</div></span>
       </label>
     </div>
+  </div>
 
-    <label for="forage_enterprise_id">enterpriseId côté Forage — laisser vide = créé automatiquement</label>
-    <input id="forage_enterprise_id" name="forage_enterprise_id" value="{{ ent.forage_enterprise_id|default:'' }}" placeholder="vide = le portail crée l'entreprise dans Forage">
+  <div class="sect">
+    <h3>Modules &amp; état</h3>
+    <p class="hint">Applications auxquelles l'entreprise est abonnée.</p>
+    <div class="toggles">
+      <label><input type="checkbox" name="module_forage" {% if ent.module_forage %}checked{% endif %}> Module Forage</label>
+      <label><input type="checkbox" name="module_mine" {% if ent.module_mine %}checked{% endif %}> Module Mine</label>
+      <label><input type="checkbox" name="active" {% if ent.active or not ent %}checked{% endif %}> Entreprise active</label>
+    </div>
+  </div>
 
-    <label for="mine_tenant_id">tenant côté Mine — laisser vide = créé automatiquement</label>
-    <input id="mine_tenant_id" name="mine_tenant_id" value="{{ ent.mine_tenant_id|default:'' }}" placeholder="vide = le portail crée l'entreprise dans la Mine">
+  <div class="sect">
+    <h3>Liaison aux applications</h3>
+    <p class="hint">Laisse ces champs vides : en cochant un module, le portail crée l'entreprise dans l'application et renseigne l'identifiant tout seul. Ne les remplis que pour relier une entreprise déjà existante.</p>
+    <div class="form-grid">
+      <div><label for="forage_enterprise_id">enterpriseId côté Forage</label>
+        <input id="forage_enterprise_id" name="forage_enterprise_id" value="{{ ent.forage_enterprise_id|default:'' }}" placeholder="vide = créé automatiquement"></div>
+      <div><label for="mine_tenant_id">tenant côté Mine</label>
+        <input id="mine_tenant_id" name="mine_tenant_id" value="{{ ent.mine_tenant_id|default:'' }}" placeholder="vide = créé automatiquement"></div>
+    </div>
+  </div>
 
-    <label for="logo" style="margin-top:14px">Logo de l'entreprise — s'affiche sur sa page d'accueil (PNG, JPG, GIF ou WEBP, max 2 Mo)</label>
+  <div class="sect">
+    <h3>Logo</h3>
+    <p class="hint">Affiché sur la page d'accueil de l'entreprise (PNG, JPG, GIF ou WEBP, max 2 Mo).</p>
     {% if ent.logo %}
-    <div style="margin:6px 0 8px;padding:10px;background:#fff;border-radius:8px;display:inline-block">
-      <img src="{{ ent.logo }}" alt="{{ ent.nom }}" style="max-height:70px;max-width:200px;object-fit:contain;display:block">
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;margin:0 0 6px">
-      <input type="checkbox" name="logo_supprimer" style="width:auto"> Supprimer le logo actuel
-    </label>
+    <div class="logo-prev"><img src="{{ ent.logo }}" alt="{{ ent.nom }}" style="max-height:70px;max-width:200px;object-fit:contain;display:block"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><input type="checkbox" name="logo_supprimer" style="width:auto"> Supprimer le logo actuel</label>
     {% endif %}
     <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+  </div>
 
-    <button class="btn primaire" type="submit" style="margin-top:16px">Enregistrer et gérer les accès →</button>
-  </form>
-  <p class="mut" style="font-size:13px;margin:12px 0 0">
-    Coche un module et laisse sa case d'identifiant vide : le portail crée l'entreprise dans l'application et remplit l'identifiant tout seul. Renseigne-le seulement pour relier une entreprise qui existe déjà. Décocher un module le détache (données conservées).
-  </p>
-</div>
+  <div class="actionbar">
+    <a class="btn" href="{% url 'gestion_clients' %}">Annuler</a>
+    <button class="btn primaire" type="submit">Enregistrer et gérer les accès →</button>
+  </div>
+</form>
 {% endblock %}
